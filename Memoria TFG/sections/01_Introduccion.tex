@@ -1,2 +1,41 @@
 \chapter{Introducción}\label{cap:introduccion}
 
+\section{Contexto y motivación}
+
+Actualmente el grupo de investigación \textit{Física de Fluidos y Microfluídica} de la Universidad de Sevilla realiza experimentos de inyección de microgotas para el estudio de nuevos materiales. Dichos experimentos son grabados con cámaras de alta velocidad (1000000 fps) para su posterior análisis. El proceso de análisis y extracción de información de los vídeos es manual, lo que supone un gran esfuerzo y tiempo para los investigadores. Por ello, se plantea la necesidad de desarrollar una herramienta que permita automatizar la detección de microgotas en los vídeos, facilitando así el trabajo de los investigadores y acelerando el proceso de análisis.
+
+Hoy en día, aunque existen en el mercado herramientas hardware y software para la medición de sprays como LaVision\cite{lavision_spraymaster} o la propuesta por Dantec Dynamics\cite{dantec_shadowsizer}, no existe ninguna herramienta open-source que permita realizar esta tarea de forma eficiente, precisa y sin gastar miles de euros. Por ello, la motivación de este trabajo es desarrollar una aplicación que utilice técnicas de visión por computador para automatizar las mediciones de manera fácil y accesible, facilitando así el trabajo de la comunidad investigadora.
+
+\section{Objetivos}
+
+El objetivo principal de este trabajo es el desarrollo de una aplicación de escritorio que disponga de una interfaz gráfica accesible para todos los investigadores, que permita cargar vídeos de alta velocidad y realizar la detección de microgotas de forma automática. Para ello, se plantean los siguientes objetivos específicos:
+
+\begin{itemize}
+    \item Desarrollar una aplicación de escritorio con \textbf{interfaz gráfica} intuitiva y fácil de usar con Tkinter.
+    \item La interfaz debe permitir al usuario cargar vídeos de alta velocidad y modificar los parámetros de detección así como la relación pixel-milímetro.
+    \item \textbf{Preprocesar} los vídeos para mejorar el contraste y reducir el ruido, facilitando así la detección de las microgotas.
+    \item Implementar un algoritmo de \textbf{segmentación de imágenes} para detectar las microgotas en cada fotograma del vídeo.
+    \item \textbf{Limpiar} los resultados de la detección para eliminar falsos positivos y mejorar la precisión de las mediciones, y aplicar \textbf{operaciones} morfológicas para mejorar la segmentación.
+    \item \textbf{Trackear} las microgotas a lo largo de los fotogramas para obtener información sobre su trayectoria y velocidad.
+    \item Guardar toda la información obtenida en una \textbf{estructura de datos} adecuada para su posterior análisis, y exportar los resultados a un formato compatible con herramientas de análisis de datos como Excel o CSV.
+    \item \textbf{Generar gráficos y visualizaciones} de los resultados obtenidos para facilitar su interpretación y análisis por parte de los investigadores.
+    \item Guardar un vídeo con las microgotas detectadas y trackeadas para su posterior revisión visual.
+\end{itemize}
+
+\section{Estructura del documento}
+
+\section{Herramientas y entorno de desarrollo}
+
+\subsection{Herramientas}
+
+El desarrollo de esta aplicación se podría dividir en dos partes principales: El \textbf{backend}, encargado de la lógica de detección y análisis de las microgotas, y el \textbf{frontend}, encargado de la interfaz gráfica de usuario. Ambas partes han sido desarrolladas en su totalidad en el lenguaje de programación \textbf{Python}\cite{python_psf}, debido a su facilidad de uso, amplia comunidad y disponibilidad de bibliotecas para visión por computador. Tengo que destacar que la mayoría del esfuerzo se ha dedicado en el desarrollo del backend, ya que es la parte más compleja y que requiere un mayor conocimiento técnico, mientras que el frontend se ha desarrollado con el objetivo de ser lo más sencillo e intuitivo posible para los usuarios finales.
+
+Para el desarrollo del backend se han utilizado las siguientes bibliotecas de Python:
+\begin{itemize}
+    \item \textbf{OpenCV}\cite{opencv_library}: Para el procesamiento de imágenes y vídeos, incluyendo técnicas de preprocesamiento, segmentación y tracking.
+    \item \textbf{NumPy}\cite{python_numpy}: Para el manejo de arrays y operaciones matemáticas necesarias en el procesamiento de imágenes.
+    \item \textbf{Pandas}\cite{python_pandas}: Para la gestión de los datos obtenidos y su exportación a formatos como CSV.
+    \item \textbf{Matplotlib}\cite{python_matplotlib}: Para la generación de gráficos y visualizaciones de los resultados obtenidos.
+\end{itemize}
+
+\subsection{Entorno de desarrollo}
