@@ -39,6 +39,11 @@ class DropletAnalyzer:
             'morphology_kernel_size': 3
         }
         
+        # Escala de calibración: cuántas unidades reales por píxel
+        # Si es None, las medidas se reportan en píxeles
+        self.pixel_scale = None   # unidades reales / píxel
+        self.scale_unit = 'px'    # nombre de la unidad (ej: 'µm', 'mm')
+        
         # Para tracking
         self.droplet_tracks = []
         self.next_id = 0
@@ -73,6 +78,65 @@ class DropletAnalyzer:
     def get_all_parameters(self):
         """Obtiene todos los parámetros"""
         return self.params.copy()
+    
+    def set_scale(self, pixel_scale, unit='µm'):
+        """
+        Establece la relación píxel/distancia real.
+        
+        Args:
+            pixel_scale: distancia real por píxel (ej: 0.5 para 0.5 µm/px)
+                         Si es None o 0, se desactiva la conversión.
+            unit: nombre de la unidad real (ej: 'µm', 'mm')
+        """
+        if pixel_scale and pixel_scale > 0:
+            self.pixel_scale = float(pixel_scale)
+            self.scale_unit = unit
+        else:
+            self.pixel_scale = None
+            self.scale_unit = 'px'
+    
+    def px_to_real(self, value_px):
+        """Convierte un valor en píxeles a la unidad real configurada"""
+        if self.pixel_scale:
+            return value_px * self.pixel_scale
+        return value_px
+    
+    def px2_to_real2(self, area_px2):
+        """Convierte área en píxeles² a la unidad real al cuadrado"""
+        if self.pixel_scale:
+            return area_px2 * (self.pixel_scale ** 2)
+        return area_px2
+    
+    def save_diagnostic_frames(self, preprocessed_filename='frame_preprocesado.png',
+                                binary_filename='frame_binarizado.png'):
+        """
+        Guarda el primer frame del video preprocesado y binarizado para diagnóstico.
+        
+        Args:
+            preprocessed_filename: nombre del archivo para el frame preprocesado
+            binary_filename: nombre del archivo para el frame binarizado
+        Returns:
+            Tupla con las rutas de los dos archivos guardados
+        """
+        import cv2
+        cap = cv2.VideoCapture(self.video_path)
+        ret, frame = cap.read()
+        cap.release()
+        
+        if not ret:
+            raise RuntimeError("No se pudo leer el primer frame del video")
+        
+        # Frame preprocesado
+        preprocessed = self.preprocess_frame(frame)
+        pre_path = os.path.join(self.output_dir, preprocessed_filename)
+        cv2.imwrite(pre_path, preprocessed)
+        
+        # Frame binarizado
+        binary, _ = self.segment_droplets(frame)
+        bin_path = os.path.join(self.output_dir, binary_filename)
+        cv2.imwrite(bin_path, binary)
+        
+        return pre_path, bin_path
     
     def set_progress_callback(self, callback):
         """Establece función callback para progreso"""
@@ -115,10 +179,8 @@ class DropletAnalyzer:
             binary: imagen binaria con gotas segmentadas
             droplets: lista de propiedades de cada gota
         """
-        # Preprocesar
         processed = self.preprocess_frame(frame)
         
-        # Binarización adaptativa
         binary = cv2.adaptiveThreshold(
             processed, 255, 
             cv2.ADAPTIVE_THRESH_GAUSSIAN_C, 
@@ -127,16 +189,13 @@ class DropletAnalyzer:
             self.params['adaptive_c']
         )
         
-        # Operaciones morfológicas para limpiar
         kernel_size = self.params['morphology_kernel_size']
         kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (kernel_size, kernel_size))
         binary = cv2.morphologyEx(binary, cv2.MORPH_OPEN, kernel)
         binary = cv2.morphologyEx(binary, cv2.MORPH_CLOSE, kernel)
         
-        # Etiquetar componentes conectados
         labeled, num_features = ndimage.label(binary)
         
-        # Extraer propiedades de cada gota
         droplets = []
         min_area = self.params['min_droplet_area']
         max_area = self.params['max_droplet_area']
@@ -145,19 +204,15 @@ class DropletAnalyzer:
             mask = (labeled == i)
             area = np.sum(mask)
             
-            # Filtrar por área
             if area < min_area or area > max_area:
                 continue
             
-            # Calcular centroide
             coords = np.argwhere(mask)
             centroid_y = np.mean(coords[:, 0])
             centroid_x = np.mean(coords[:, 1])
             
-            # Calcular diámetro equivalente
             diameter = 2 * np.sqrt(area / np.pi)
             
-            # Calcular perímetro y circularidad
             contours, _ = cv2.findContours(
                 mask.astype(np.uint8), 
                 cv2.RETR_EXTERNAL, 
@@ -170,7 +225,6 @@ class DropletAnalyzer:
                 perimeter = 0
                 circularity = 0
             
-            # Bounding box
             ys, xs = np.where(mask)
             bbox = (int(xs.min()), int(ys.min()), int(xs.max()), int(ys.max()))
             
@@ -193,7 +247,6 @@ class DropletAnalyzer:
         max_distance = self.params['max_tracking_distance']
         
         if frame_idx == 0:
-            # Primer frame: inicializar tracks
             for droplet in current_droplets:
                 track = {
                     'id': self.next_id,
@@ -206,11 +259,9 @@ class DropletAnalyzer:
                 self.droplet_tracks.append(track)
                 self.next_id += 1
         else:
-            # Frames subsiguientes: asociar con tracks existentes
             used_tracks = set()
             used_droplets = set()
             
-            # Calcular distancias entre gotas actuales y últimas posiciones de tracks
             for i, droplet in enumerate(current_droplets):
                 best_track_idx = None
                 best_distance = float('inf')
@@ -219,7 +270,6 @@ class DropletAnalyzer:
                     if j in used_tracks:
                         continue
                     
-                    # Solo considerar tracks activos (último frame reciente)
                     if track['frames'][-1] < frame_idx - 5:
                         continue
                     
@@ -234,7 +284,6 @@ class DropletAnalyzer:
                         best_track_idx = j
                 
                 if best_track_idx is not None:
-                    # Actualizar track existente
                     track = self.droplet_tracks[best_track_idx]
                     track['positions'].append(droplet['centroid'])
                     track['frames'].append(frame_idx)
@@ -244,7 +293,6 @@ class DropletAnalyzer:
                     used_tracks.add(best_track_idx)
                     used_droplets.add(i)
             
-            # Crear nuevos tracks para gotas no asociadas
             for i, droplet in enumerate(current_droplets):
                 if i not in used_droplets:
                     track = {
@@ -272,12 +320,10 @@ class DropletAnalyzer:
             positions = np.array(track['positions'])
             frames = np.array(track['frames'])
             
-            # Calcular diferencias
             dx = np.diff(positions[:, 0])
             dy = np.diff(positions[:, 1])
-            dt = np.diff(frames) / self.fps  # tiempo en segundos
+            dt = np.diff(frames) / self.fps 
             
-            # Velocidades en píxeles/segundo
             vx = dx / dt
             vy = dy / dt
             v_mag = np.sqrt(vx**2 + vy**2)
@@ -292,7 +338,7 @@ class DropletAnalyzer:
         self.next_id = 0
         self.cancel_requested = False
     
-    def process_video(self, save_visualization=True):
+    def process_video(self, save_visualization=True, output_video_filename='tracked_droplets.avi'):
         """
         Procesa todo el video
         """
@@ -303,7 +349,7 @@ class DropletAnalyzer:
         if save_visualization:
             fourcc = cv2.VideoWriter_fourcc(*'XVID')
             out = cv2.VideoWriter(
-                os.path.join(self.output_dir, 'tracked_droplets.avi'),
+                os.path.join(self.output_dir, output_video_filename),
                 fourcc, self.fps, (self.width, self.height)
             )
         
@@ -318,23 +364,18 @@ class DropletAnalyzer:
             if not ret:
                 break
             
-            # Segmentar gotas
-            binary, droplets = self.segment_droplets(frame)
+            _, droplets = self.segment_droplets(frame)
             
-            # Rastrear gotas
             self.track_droplets(droplets, frame_idx)
             
-            # Visualización
             if save_visualization:
                 vis_frame = cv2.cvtColor(frame, cv2.COLOR_GRAY2BGR) if len(frame.shape) == 2 else frame.copy()
                 
-                # Dibujar gotas detectadas
                 for droplet in droplets:
                     cx, cy = droplet['centroid']
                     cv2.circle(vis_frame, (int(cx), int(cy)), int(droplet['diameter']/2), (0, 255, 0), 1)
                     cv2.circle(vis_frame, (int(cx), int(cy)), 2, (0, 0, 255), -1)
                 
-                # Dibujar trayectorias de tracks activos
                 for track in self.droplet_tracks:
                     if len(track['positions']) > 1 and track['frames'][-1] >= frame_idx - 10:
                         points = np.array(track['positions'], dtype=np.int32)
@@ -342,7 +383,6 @@ class DropletAnalyzer:
                 
                 out.write(vis_frame)
             
-            # Actualizar progreso
             if self.progress_callback:
                 progress = int((frame_idx + 1) / self.total_frames * 100)
                 self.progress_callback(progress, frame_idx + 1, self.total_frames)
@@ -354,15 +394,16 @@ class DropletAnalyzer:
             out.release()
         
         if not self.cancel_requested:
-            # Calcular velocidades
             self.calculate_velocities()
         
         return not self.cancel_requested
     
     def export_to_dataframe(self):
         """
-        Exporta resultados a DataFrame
+        Exporta resultados a DataFrame.
+        Si hay escala configurada, las medidas se convierten a unidades reales.
         """
+        u = self.scale_unit  # unidad activa
         data = []
         for track in self.droplet_tracks:
             track_id = track['id']
@@ -372,29 +413,30 @@ class DropletAnalyzer:
                     'track_id': track_id,
                     'frame': track['frames'][i],
                     'time_s': track['frames'][i] / self.fps,
-                    'x_px': track['positions'][i][0],
-                    'y_px': track['positions'][i][1],
-                    'area_px2': track['areas'][i],
-                    'diameter_px': track['diameters'][i],
+                    f'x_{u}': self.px_to_real(track['positions'][i][0]),
+                    f'y_{u}': self.px_to_real(track['positions'][i][1]),
+                    f'area_{u}2': self.px2_to_real2(track['areas'][i]),
+                    f'diameter_{u}': self.px_to_real(track['diameters'][i]),
                     'circularity': track['circularities'][i]
                 }
                 
-                # Añadir velocidades si existen
                 if i < len(track.get('velocity_x', [])):
-                    row['velocity_x_px_s'] = track['velocity_x'][i]
-                    row['velocity_y_px_s'] = track['velocity_y'][i]
-                    row['velocity_magnitude_px_s'] = track['velocity_magnitude'][i]
+                    row[f'velocity_x_{u}_s'] = self.px_to_real(track['velocity_x'][i])
+                    row[f'velocity_y_{u}_s'] = self.px_to_real(track['velocity_y'][i])
+                    row[f'velocity_magnitude_{u}_s'] = self.px_to_real(track['velocity_magnitude'][i])
                 
                 data.append(row)
         
         return pd.DataFrame(data)
     
-    def export_results(self):
+    def export_results(self, filename='droplet_data.csv'):
         """
-        Exporta resultados a CSV
+        Exporta resultados a CSV con nombre de archivo personalizable.
         """
         df = self.export_to_dataframe()
-        csv_path = os.path.join(self.output_dir, 'droplet_data.csv')
+        if not filename.endswith('.csv'):
+            filename += '.csv'
+        csv_path = os.path.join(self.output_dir, filename)
         df.to_csv(csv_path, index=False)
         return df, csv_path
     
@@ -407,23 +449,29 @@ class DropletAnalyzer:
         if len(df) == 0:
             return None
         
+        u = self.scale_unit
+        diam_col = f'diameter_{u}'
+        area_col = f'area_{u}2'
+        vel_col = f'velocity_magnitude_{u}_s'
+        
         stats = {
             'total_tracks': df['track_id'].nunique(),
             'total_detections': len(df),
-            'diameter_mean': df['diameter_px'].mean(),
-            'diameter_median': df['diameter_px'].median(),
-            'diameter_std': df['diameter_px'].std(),
-            'diameter_min': df['diameter_px'].min(),
-            'diameter_max': df['diameter_px'].max(),
-            'area_mean': df['area_px2'].mean(),
-            'area_median': df['area_px2'].median(),
-            'area_std': df['area_px2'].std(),
+            'diameter_mean': df[diam_col].mean(),
+            'diameter_median': df[diam_col].median(),
+            'diameter_std': df[diam_col].std(),
+            'diameter_min': df[diam_col].min(),
+            'diameter_max': df[diam_col].max(),
+            'area_mean': df[area_col].mean(),
+            'area_median': df[area_col].median(),
+            'area_std': df[area_col].std(),
             'circularity_mean': df['circularity'].mean(),
             'circularity_median': df['circularity'].median(),
+            'unit': u,
         }
         
-        if 'velocity_magnitude_px_s' in df.columns:
-            velocities = df['velocity_magnitude_px_s'].dropna()
+        if vel_col in df.columns:
+            velocities = df[vel_col].dropna()
             if len(velocities) > 0:
                 stats['velocity_mean'] = velocities.mean()
                 stats['velocity_median'] = velocities.median()

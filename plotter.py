@@ -5,7 +5,7 @@ Módulo para generar gráficos y visualizaciones
 
 import matplotlib.pyplot as plt
 import matplotlib
-matplotlib.use('Agg')  # Backend sin GUI para evitar conflictos
+matplotlib.use('Agg')
 import numpy as np
 import os
 
