@@ -193,18 +193,18 @@ class DropletAnalyzerGUI:
         self.cancel_btn.grid(row=0, column=1, padx=5, pady=5, sticky=(tk.W, tk.E))
         
         # Barra de progreso
-        ttk.Label(control_frame, text="Progreso:").grid(row=1, column=0, sticky=tk.W, pady=5)
+       # ttk.Label(control_frame, text="Progreso:").grid(row=1, column=0, sticky=tk.W, pady=5)
         self.progress_var = tk.IntVar()
         self.progress_bar = ttk.Progressbar(control_frame, variable=self.progress_var, 
                                            maximum=100)
-        self.progress_bar.grid(row=2, column=0, sticky=(tk.W, tk.E), pady=5)
+        self.progress_bar.grid(row=1, column=0, sticky=(tk.W, tk.E), pady=5)
         
         self.progress_label = ttk.Label(control_frame, text="")
-        self.progress_label.grid(row=3, column=0, sticky=tk.W, pady=5)
+        self.progress_label.grid(row=2, column=0, sticky=tk.W, pady=5)
         
         # Estadísticas
         stats_subframe = ttk.LabelFrame(control_frame, text="Estadísticas", padding="10")
-        stats_subframe.grid(row=4, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), pady=10)
+        stats_subframe.grid(row=3, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), pady=10)
         stats_subframe.rowconfigure(0, weight=1)
         
         self.stats_text = tk.Text(stats_subframe, height=15, width=40, 
