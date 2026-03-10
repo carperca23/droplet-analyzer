@@ -30,15 +30,17 @@ class DropletAnalyzer:
         self.params = {
             'min_droplet_area': 10,
             'max_droplet_area': 5000,
+            'min_droplet_circularity': 0.6,
             'threshold_value': 100,
             'max_tracking_distance': 50,
             'clahe_clip_limit': 2.0,
             'denoise_strength': 10,
             'adaptive_block_size': 11,
             'adaptive_c': 2,
-            'morphology_kernel_size': 3
+            'morphology_kernel_size': 3,
+            'use_clahe': False
         }
-        
+
         # Escala de calibración: cuántas unidades reales por píxel
         # Si es None, las medidas se reportan en píxeles
         self.pixel_scale = None   # unidades reales / píxel
@@ -156,28 +158,22 @@ class DropletAnalyzer:
         else:
             gray = frame.copy()
         
-        '''
-        # Mejorar contraste
-        clahe = cv2.createCLAHE(
-            clipLimit=self.params['clahe_clip_limit'], 
-            tileGridSize=(8, 8)
-        )
-        enhanced = clahe.apply(gray)
-        '''
-
-        flattened = gray.flatten()
-    
-   
-        low_percentile = 0.4
-        high_percentile = 100.0 - 0.4
+      
+        if self.params['use_clahe']:
+            clh = cv2.createCLAHE(
+                clipLimit=self.params['clahe_clip_limit'], 
+                tileGridSize=(8, 8)
+            )
+            enhanced = clh.apply(gray)
         
-        low_val, high_val = np.percentile(flattened, [low_percentile, high_percentile])
-        
+        else:
+            flattened = gray.flatten()
+            low_percentile = 0.4
+            high_percentile = 100.0 - 0.4
+            low_val, high_val = np.percentile(flattened, [low_percentile, high_percentile])
+            dst = np.clip(gray, low_val, high_val)
+            enhanced = ((dst - low_val) / (high_val - low_val) * 255).astype(np.uint8)
 
-        dst = np.clip(gray, low_val, high_val)
-        
-
-        enhanced = ((dst - low_val) / (high_val - low_val) * 255).astype(np.uint8)
         # Reducir ruido
         denoised = cv2.fastNlMeansDenoising(
             enhanced, 
@@ -209,49 +205,62 @@ class DropletAnalyzer:
         binary = cv2.morphologyEx(binary, cv2.MORPH_OPEN, kernel)
         binary = cv2.morphologyEx(binary, cv2.MORPH_CLOSE, kernel)
         
-        labeled, num_features = ndimage.label(binary)
-        
+        contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+    
+    
+        for cnt in contours:
+            if cv2.contourArea(cnt) > self.params['min_droplet_area']:
+                cv2.drawContours(binary, [cnt], -1, 255, thickness=-1)
         droplets = []
-        min_area = self.params['min_droplet_area']
-        max_area = self.params['max_droplet_area']
-        
-        for i in range(1, num_features + 1):
-            mask = (labeled == i)
-            area = np.sum(mask)
+
+        contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+        for cnt in contours:
+            area = cv2.contourArea(cnt)
             
-            if area < min_area or area > max_area:
-                continue
-            
-            coords = np.argwhere(mask)
-            centroid_y = np.mean(coords[:, 0])
-            centroid_x = np.mean(coords[:, 1])
-            
-            diameter = 2 * np.sqrt(area / np.pi)
-            
-            contours, _ = cv2.findContours(
-                mask.astype(np.uint8), 
-                cv2.RETR_EXTERNAL, 
-                cv2.CHAIN_APPROX_SIMPLE
-            )
-            if contours:
-                perimeter = cv2.arcLength(contours[0], True)
-                circularity = 4 * np.pi * area / (perimeter ** 2) if perimeter > 0 else 0
-            else:
-                perimeter = 0
-                circularity = 0
-            
-            ys, xs = np.where(mask)
-            bbox = (int(xs.min()), int(ys.min()), int(xs.max()), int(ys.max()))
-            
-            droplets.append({
-                'centroid': (centroid_x, centroid_y),
-                'area': area,
-                'diameter': diameter,
-                'perimeter': perimeter,
-                'circularity': circularity,
-                'bbox': bbox,
-                'mask': mask
-            })
+            if self.params["min_droplet_area"] <= area <= self.params["max_droplet_area"]:
+                
+                M = cv2.moments(cnt)
+                if M["m00"] != 0:
+                    centroid_x = float(M["m10"] / M["m00"])
+                    centroid_y = float(M["m01"] / M["m00"])
+                else:
+                    x_box, y_box, w_box, h_box = cv2.boundingRect(cnt)
+                    centroid_x, centroid_y = x_box + w_box/2, y_box + h_box/2
+
+                perimeter = cv2.arcLength(cnt, True)
+                if perimeter > 0:
+                    circularity = (4 * np.pi * area) / (perimeter ** 2)
+                    circularity = min(1.0, circularity)
+                else:
+                    circularity = 0
+
+                if circularity >= self.params["min_droplet_circularity"]:
+                    roundness = 0
+                    if len(cnt) >= 5:
+                        _, (ma, MA), _ = cv2.fitEllipse(cnt)
+                        if MA > 0:
+                            roundness = (4 * area) / (np.pi * (MA**2))
+                            roundness = min(1.0, roundness)
+
+                    diameter = 2 * np.sqrt(area / np.pi)
+                    
+                    bbox = cv2.boundingRect(cnt)
+                    
+                    mask = np.zeros(binary.shape, dtype=np.uint8)
+                    cv2.drawContours(mask, [cnt], -1, 255, -1)
+                    
+                    droplets.append({
+                        'centroid': (centroid_x, centroid_y),
+                        'area': area,
+                        'diameter': diameter,
+                        'perimeter': perimeter,
+                        'circularity': circularity,
+                        'roundness': roundness, 
+                        'bbox': bbox,
+                        'mask': mask
+                    })
         
         return binary, droplets
     
