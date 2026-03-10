@@ -156,13 +156,28 @@ class DropletAnalyzer:
         else:
             gray = frame.copy()
         
+        '''
         # Mejorar contraste
         clahe = cv2.createCLAHE(
             clipLimit=self.params['clahe_clip_limit'], 
             tileGridSize=(8, 8)
         )
         enhanced = clahe.apply(gray)
+        '''
+
+        flattened = gray.flatten()
+    
+   
+        low_percentile = 0.4
+        high_percentile = 100.0 - 0.4
         
+        low_val, high_val = np.percentile(flattened, [low_percentile, high_percentile])
+        
+
+        dst = np.clip(gray, low_val, high_val)
+        
+
+        enhanced = ((dst - low_val) / (high_val - low_val) * 255).astype(np.uint8)
         # Reducir ruido
         denoised = cv2.fastNlMeansDenoising(
             enhanced, 

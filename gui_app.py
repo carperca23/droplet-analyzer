@@ -383,7 +383,7 @@ class DropletAnalyzerGUI:
                 self.root.after(0, self._on_processing_cancelled)
                 
         except Exception as e:
-            self.root.after(0, lambda: self._on_processing_error(str(e)))
+            self.root.after(0, lambda error=str(e): self._on_processing_error(error))
     
     def _on_processing_complete(self):
         """Callback cuando el procesamiento se completa"""
