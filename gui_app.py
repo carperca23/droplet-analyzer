@@ -243,10 +243,28 @@ class DropletAnalyzerGUI:
     
     def create_parameter_controls(self, parent):
         """Crea controles para los parámetros"""
+        algo_frame = ttk.Frame(parent)
+        algo_frame.grid(row=0, column=0, sticky=(tk.W, tk.E), pady=5, padx=5)
+        algo_frame.columnconfigure(1, weight=1)
+
+        ttk.Label(algo_frame, text="Método de contraste:", width=30).grid(row=0, column=0, sticky=tk.W)
         
+        self.algo_var = tk.StringVar(value="ImageJ (Global)")
+        algo_combo = ttk.Combobox(
+            algo_frame, 
+            textvariable=self.algo_var, 
+            values=["ImageJ (Global)", "CLAHE (Local)"],
+            state="readonly"
+        )
+        algo_combo.grid(row=0, column=1, columnspan=2, sticky=(tk.W, tk.E), padx=5)
+        self.algo_var.trace_add("write", self._on_algo_change)
+
+        self.param_widgets = {}
+
         params_info = [
             ('min_droplet_area', 'Área mínima de gota (px²)', 1, 500, 10),
             ('max_droplet_area', 'Área máxima de gota (px²)', 100, 10000, 5000),
+            ('min_droplet_circularity', 'Circularidad mínima (0-1)', 0.0, 1.0, 0.6),
             ('max_tracking_distance', 'Distancia máxima tracking (px)', 5, 200, 50),
             ('clahe_clip_limit', 'Contraste CLAHE', 0.5, 10.0, 2.0),
             ('denoise_strength', 'Fuerza reducción ruido', 1, 30, 10),
@@ -255,40 +273,36 @@ class DropletAnalyzerGUI:
             ('morphology_kernel_size', 'Tamaño kernel morfología', 1, 15, 3),
         ]
         
-        for i, (param_name, label, min_val, max_val, default_val) in enumerate(params_info):
-            # Frame para cada parámetro
+        for i, (param_name, label, min_val, max_val, default_val) in enumerate(params_info, start=1):
             param_frame = ttk.Frame(parent)
-            param_frame.grid(row=i, column=0, sticky=(tk.W, tk.E), pady=5, padx=5)
+            param_frame.grid(row=i, column=0, sticky=(tk.W, tk.E), pady=2, padx=5)
             param_frame.columnconfigure(1, weight=1)
             
-            # Etiqueta
-            ttk.Label(param_frame, text=label, width=30).grid(row=0, column=0, sticky=tk.W)
+            lbl = ttk.Label(param_frame, text=label, width=30)
+            lbl.grid(row=0, column=0, sticky=tk.W)
             
-            # Variable
             if isinstance(default_val, float):
                 var = tk.DoubleVar(value=default_val)
             else:
                 var = tk.IntVar(value=default_val)
             self.param_vars[param_name] = var
             
-            # Slider
+            cmd = None
             if param_name == 'adaptive_block_size':
-                # Este debe ser impar
-                scale = ttk.Scale(param_frame, from_=min_val, to=max_val, 
-                                variable=var, orient=tk.HORIZONTAL,
-                                command=lambda v, pn=param_name: self.validate_odd_parameter(pn))
-            else:
-                scale = ttk.Scale(param_frame, from_=min_val, to=max_val, 
-                                variable=var, orient=tk.HORIZONTAL)
+                cmd = lambda v, pn=param_name: self.validate_odd_parameter(pn)
+            
+            scale = ttk.Scale(param_frame, from_=min_val, to=max_val, variable=var, orient=tk.HORIZONTAL, command=cmd)
             scale.grid(row=0, column=1, sticky=(tk.W, tk.E), padx=5)
             
-            # Entry para valor
             entry = ttk.Entry(param_frame, textvariable=var, width=8)
             entry.grid(row=0, column=2, sticky=tk.W, padx=5)
             
-            # Botón reset
-            ttk.Button(param_frame, text="↺", width=3,
-                      command=lambda v=var, d=default_val: v.set(d)).grid(row=0, column=3)
+            reset_btn = ttk.Button(param_frame, text="↺", width=3, command=lambda v=var, d=default_val: v.set(d))
+            reset_btn.grid(row=0, column=3)
+
+            self.param_widgets[param_name] = [lbl, scale, entry, reset_btn]
+
+        self._on_algo_change()
     
     def validate_odd_parameter(self, param_name):
         """Asegura que ciertos parámetros sean impares"""
@@ -326,10 +340,14 @@ class DropletAnalyzerGUI:
         self.status_label.config(text=message, foreground=color)
     
     def get_parameters_from_gui(self):
-        """Obtiene los parámetros de la GUI"""
+        """Obtiene los parámetros de la GUI e incluye la elección del algoritmo"""
         params = {}
         for param_name, var in self.param_vars.items():
             params[param_name] = var.get()
+        
+        # Añadimos el booleano del algoritmo
+        params['use_clahe'] = (self.algo_var.get() == "CLAHE (Local)")
+        
         return params
     
     def process_video(self):
@@ -366,7 +384,19 @@ class DropletAnalyzerGUI:
         thread = threading.Thread(target=self._process_video_thread)
         thread.daemon = True
         thread.start()
-    
+
+    def _on_algo_change(self, *args):
+        """Maneja el cambio de algoritmo y actualiza la interfaz"""
+        use_clahe = (self.algo_var.get() == "CLAHE (Local)")
+        
+        # Opcional: Desactivar los controles de CLAHE si se usa ImageJ
+        state = tk.NORMAL if use_clahe else tk.DISABLED
+        for widget in self.param_widgets['clahe_clip_limit']:
+            try:
+                widget.config(state=state)
+            except:
+                pass
+
     def _process_video_thread(self):
         """Hilo de procesamiento del video"""
         try:
