@@ -1,0 +1,159 @@
+\chapter{Implementación}\label{cap:implementacion}
+
+En este apartado se describirá la solución final implementada, detallando tanto el pipeline de procesamiento de imágenes, como la interfaz gráfica desarrollada junto con una breve guía de uso. Para ello, se dividirá el capítulo en dos secciones: una dedicada al backend y otra al frontend.
+
+\section{Backend}
+
+El backend de la aplicación se encarga de procesar las imágenes de alta velocidad obtenidas durante los experimentos con nebulizadores Flow Blurring. Para ello, se ha desarrollado un pipeline de procesamiento que incluye varias etapas, como la preprocesamiento de las imágenes, la segmentación de las gotas y la extracción de características relevantes para el análisis.
+
+Cabe destacar que la mayor parte del esfuerzo de implementación se ha centrado en el desarrollo de este pipeline de procesamiento, ya que es la parte más crítica y compleja de la aplicación. Se han utilizado diversas técnicas de procesamiento de imágenes, como filtros de suavizado, umbralización adaptativa y algoritmos de detección de bordes, para lograr una segmentación precisa de las gotas.
+
+\subsection{Arquitectura del Analizador}
+
+El procesamiento de imágenes se ha implementado en una clase llamada \texttt{DropletAnalyzer}, que se encarga de recibir un vídeo de alta velocidad, procesar cada uno de sus frames y extraer las características relevantes de las gotas presentes en cada frame. El resultado final se almacena en un formato estructurado que puede ser utilizado para análisis posteriores.
+
+Dicha clase se ha diseñado de forma modular, permitiendo la fácil incorporación de nuevas técnicas de procesamiento o la modificación de las existentes sin afectar al resto del pipeline. Esto dota a la aplicación de una gran flexibilidad, permitiendo seleccionar diferentes técnicas de preprocesamiento o segmentación según las características específicas de los vídeos a analizar. Es decir, podríamos definir el pipeline como una cadena de bloques que reciben un frame, ejecutan una acción sobre él y lo pasan al siguiente bloque, de forma que cada bloque es independiente del resto y se pueden modificar o sustituir sin afectar a los demás. La figura \ref{fig:diagramaPipeline} muestra un diagrama de alto nivel donde se pueden diferenciar las distintas etapas (los bloques) por las que pasa cada frame del vídeo hasta obtener el resultado final.
+
+\begin{figure}[ht] 
+    \centering
+    \includegraphics[width=1\textwidth]{figures/Diagrama1.png}
+    \caption{Diagrama del pipeline de procesamiento.}
+    \label{fig:diagramaPipeline}
+\end{figure}
+
+\FloatBarrier
+
+También se han tenido que definir tres tipos de datos (diccionarios) para poder almacenar los parámetros que el usuario puede configurar en la interfaz gráfica, los resultados del procesamiento de cada frame y los resultados finales, una vez terminado el tracking. En la figura \ref{fig:diagramaClaseAn} se muestra un diagrama de la clase \texttt{DropletAnalyzer}, donde se pueden observar los atributos que almacenan estos datos, así como los métodos principales que se encargan de ejecutar cada una de las etapas del pipeline de procesamiento.
+
+\subsection{Preprocesamiento}
+
+El preprocesamiento de los frames del vídeo es la primera etapa del pipeline implementado. En esta etapa se aplican diversas técnicas para mejorar la calidad del contraste y la reducción de ruido en las imágenes, facilitando así la posterior segmentación de las gotas.
+
+Como se pude apreciar en el diagrama de la figura \ref{fig:diagramaPipeline}, el preprocesamiento se compone de tres etapas principales: la conversión a escala de grises, la mejora del contraste y la reducción de ruido. Veamos cada uno de estos bloques con más detalle.
+
+\subsubsection{Conversión a escala de grises}
+
+Como vimos en la sección \ref{sec:intropi}, las imágenes pueden estar compuestas por múltiples canales de color, en nuestro caso, los vídeos de alta velocidad están en formato RGB, aunque el vídeo se vea en blanco y negro. Al pasar de los tres canales RGB de los frames originales a un canal de escala de grises, se simplifica el procesamiento y se reduce la cantidad de información a manejar. Además los algoritmos de detección de bordes usados pasan internamente las imágenes a escala de grises, por lo que no estamos perdiendo ninguna información.
+
+Para realizar esta transformación se usa la función \texttt{cv2.cvtColor} de OpenCV. En las siguientes figuras se muestra el antes y después de la conversión, aunque a simple vista  es difícil apreciar la diferencia.
+
+\begin{figure}[ht]
+    \centering
+    \begin{subfigure}[t]{0.35\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{figures/frameoriginal.png}
+        \caption{Original}  
+        \label{subfig:original}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[t]{0.35\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{figures/escaladegrises.png}
+        \caption{Gray}  
+        \label{subfig:gris}
+    \end{subfigure}
+    
+    \caption{Conversión a escala de grises.}
+    \label{fig:preproc-gris}
+\end{figure}
+\FloatBarrier
+\begin{figure}[ht] 
+    \centering
+    \includegraphics[width=0.7\textwidth]{figures/DiagramaClaseAn.png}
+    \caption{Diagrama de la clase DropletAnalyzer.}
+    \label{fig:diagramaClaseAn}
+\end{figure}
+\FloatBarrier
+
+\subsubsection{Mejora del contraste}
+
+Gran parte de los frames capturados durante los experimentos presentan un bajo contraste, como se puede apreciar en la figura \ref{subfig:original}. Para mejorar el contraste de las imágenes se han implementado dos técnicas que trabajan sobre el histograma de la imagen: La ecualización adaptativa del histograma (CLAHE) \cite{zuiderveld1994clahe} y el estiramiento del histograma. La teoría detrás de estas técnicas se explicó en la sección \ref{subsec:preproc}, por lo que aquí nos centraremos en su implementación y resultados.
+
+Para la implementación de CLAHE se ha usado la función \texttt{cv2.createCLAHE} de OpenCV, que permite configurar el tamaño de los tiles y el límite de contraste. En el caso del estiramiento del histograma, se ha implementado una función personalizada que ignora el 0.4\% de los píxeles más oscuros y el 0.4\% de los píxeles más claros, estirando el rango de intensidad entre estos percentiles.
+
+El usuario tiene la capacidad de seleccionar entre estas dos técnicas de mejora de contraste y modificar algunos de sus parámetros desde la interfaz gráfica.
+
+La implementación es la siguiente:
+\\
+\begin{lstlisting}[language=Python, caption={Implementación de mejora de contraste mediante CLAHE y estiramiento por percentiles.}, label={lst:mejora-contraste}]
+if self.params['use_clahe']:
+    clh = cv2.createCLAHE(
+        clipLimit=self.params['clahe_clip_limit'], 
+        tileGridSize=(8, 8)
+    )
+    enhanced = clh.apply(gray)
+
+else:
+    flattened = gray.flatten()
+    low_percentile = 0.4
+    high_percentile = 100.0 - 0.4
+    low_val, high_val = np.percentile(flattened, [low_percentile, high_percentile])
+    dst = np.clip(gray, low_val, high_val)
+    enhanced = ((dst - low_val) / (high_val - low_val) * 255).astype(np.uint8)
+\end{lstlisting}
+
+\begin{figure}[ht]
+    \centering
+
+    \begin{subfigure}[b]{0.45\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{figures/frameoriginal.png}
+        \caption{Original}
+        \label{fig:original}
+    \end{subfigure}
+    \vspace{20pt} 
+    \begin{subfigure}[b]{0.45\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{figures/CLAHE.png}
+        \caption{CLAHE}
+        \label{fig:CLAHE}
+    \end{subfigure}
+    \hfill 
+    \begin{subfigure}[b]{0.45\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{figures/contrasteporpercentil.png}
+        \caption{Estiramiento del histograma}
+        \label{fig:estiramiento}
+    \end{subfigure}
+    \caption{Comparación de técnicas de mejora de contraste.}
+    \label{fig:mejora-contraste}
+\end{figure}
+
+En la figura \ref{fig:mejora-contraste} se puede apreciar la mejora del contraste obtenida con ambas técnicas. También se puede observar claramente que el estiramiento por percentiles es más agresivo, lo que puede ser beneficioso para algunos vídeos, pero también introduce más ruido, mientras que CLAHE es más suave y puede ser preferible para vídeos con menos problemas de contraste. Por otro lado, se puede apreciar que CLAHE se aplica de manera local, lo que genera esas pequeñas regiones más claras alrededor de las gotas, mientras que el estiramiento por percentiles se aplica de manera global, generando un fondo más uniforme.
+
+\subsubsection{Reducción de ruido}
+
+Tras aplicar las técnicas de mejora de contraste, se introduce algo de ruido de tipo sal y pimienta, como se puede apreciar en \ref{sub@fig:estiramiento}. Para reducir este ruido se ha optado por el uso del algoritmo Fast Non-Local Means Denoising \cite{ipol.2011.bcm_nlm}, implementado en OpenCV a través de la función \texttt{cv2.fastNlMeansDenoising}. Este algoritmo es una versión optimizada del algoritmo Non-Local Means, que reduce el ruido preservando los bordes y detalles de la imagen. El usuario puede configurar el parámetro de fuerza de reducción de ruido desde la interfaz gráfica, permitiendo ajustar el nivel de suavizado según las características específicas de cada vídeo. La teoría detrás de este algoritmo y de otras técnicas de reducción de ruido se explicaron en la sección \ref{subsec:preproc}.
+
+Hay que remarcar que este paso es uno de los más complejos computacionalmente, pero dado que la solución no necesita ser en tiempo real, se ha optado por sacrificar algo de rendimiento a cambio de una mejor calidad en la segmentación de las gotas.
+
+\begin{figure}[ht]
+    \centering
+    \begin{subfigure}[t]{0.45\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{figures/contrasteporpercentil.png}
+        \caption{Ruidosa tras estiramiento}  
+        \label{subfig:originalDenoising}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[t]{0.45\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{figures/denoisingNlMeans.png}
+        \caption{Denoised}  
+        \label{subfig:denoised}
+    \end{subfigure}
+    
+    \caption{Reducción de ruido mediente FNL means Denoising ($h=10$).}
+    \label{fig:denoising}
+\end{figure}
+
+Como se puede apreciar en la figura \ref{fig:denoising}, el algoritmo FNL means Denoising es capaz de reducir el ruido introducido por el estiramiento del histograma, preservando los bordes y detalles de las gotas. Sin embargo, también se puede observar que se pierde algo de detalle en las gotas más pequeñas, pero en general, las gotas enfocadas de mayor tamaño preservan su forma y bordes.
+
+\subsection{Segmentación y filtrado}
+
+Como se puede apreciar en el diagrama de la figura \ref{fig:diagramaPipeline}, esta etapa es la que conlleva un mayor número de pasos, y podríamos decir que es la etapa central del pipeline de procesamiento, ya que es la encargada de segmentar las gotas presentes en cada frame y extraer las características relevantes para el análisis posterior. En esta sección se describirán los algoritmos y técnicas seleccionados para cada uno de los bloques que componen esta etapa, así como los resultados obtenidos.
+
+\subsubsection{Umbralización}
+
+\FloatBarrier
+\section{Backend}
