@@ -27,7 +27,7 @@ DEFAULT_PARAMS = {
     'denoise_strength': 10,
     'adaptive_block_size': 11,
     'adaptive_c': 2,
-    'morphology_kernel_size': 3,
+    'morphology_kernel_size': 2,
     'use_clahe': False,
 }
  
@@ -138,13 +138,13 @@ def run_pipeline_debug(video_path, frame_index=0, output_dir='debug_frames', par
     # 4. Morfología OPEN
     k = params['morphology_kernel_size']
     kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (k, k))
-    after_open = cv2.morphologyEx(binary, cv2.MORPH_OPEN, kernel)
+    after_open = cv2.morphologyEx(binary, cv2.MORPH_OPEN, kernel, iterations=1)
     save_step(after_open, step, "morfologia OPEN", output_dir,
               label=f"kernel elipse {k}x{k}  — elimina ruido puntual")
     step += 1
  
     # 5. Morfología CLOSE
-    after_close = cv2.morphologyEx(after_open, cv2.MORPH_CLOSE, kernel)
+    after_close = cv2.morphologyEx(after_open, cv2.MORPH_CLOSE, kernel, iterations=1)
     save_step(after_close, step, "morfologia CLOSE", output_dir,
               label=f"kernel elipse {k}x{k}  — cierra huecos internos")
     step += 1
@@ -168,7 +168,7 @@ def run_pipeline_debug(video_path, frame_index=0, output_dir='debug_frames', par
  
     # 7. Segunda pasada findContours sobre máscara rellena
     contours_pass2, _ = cv2.findContours(
-        binary_filled, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        binary_filled, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
  
     vis_all = cv2.cvtColor(binary_filled, cv2.COLOR_GRAY2BGR)
     cv2.drawContours(vis_all, contours_pass2, -1, (0, 180, 255), 1)

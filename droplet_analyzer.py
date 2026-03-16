@@ -214,7 +214,7 @@ class DropletAnalyzer:
                 cv2.drawContours(binary, [cnt], -1, 255, thickness=-1)
         droplets = []
 
-        contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
 
         for cnt in contours:
             area = cv2.contourArea(cnt)

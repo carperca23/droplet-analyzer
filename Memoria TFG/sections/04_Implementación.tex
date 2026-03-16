@@ -67,7 +67,7 @@ Para realizar esta transformación se usa la función \texttt{cv2.cvtColor} de O
 
 \subsubsection{Mejora del contraste}
 
-Gran parte de los frames capturados durante los experimentos presentan un bajo contraste, como se puede apreciar en la figura \ref{subfig:original}. Para mejorar el contraste de las imágenes se han implementado dos técnicas que trabajan sobre el histograma de la imagen: La ecualización adaptativa del histograma (CLAHE) \cite{zuiderveld1994clahe} y el estiramiento del histograma. La teoría detrás de estas técnicas se explicó en la sección \ref{subsec:preproc}, por lo que aquí nos centraremos en su implementación y resultados.
+Gran parte de los frames capturados durante los experimentos presentan un bajo contraste, como se puede apreciar en la figura \ref{subfig:original}. Para mejorar esto, se han implementado dos técnicas que trabajan sobre sus histogramas: La ecualización adaptativa del histograma (CLAHE) \cite{zuiderveld1994clahe} y el estiramiento del histograma. La teoría detrás de estas técnicas se explicó en la sección \ref{subsec:preproc}, por lo que aquí nos centraremos en su implementación y resultados.
 
 Para la implementación de CLAHE se ha usado la función \texttt{cv2.createCLAHE} de OpenCV, que permite configurar el tamaño de los tiles y el límite de contraste. En el caso del estiramiento del histograma, se ha implementado una función personalizada que ignora el 0.4\% de los píxeles más oscuros y el 0.4\% de los píxeles más claros, estirando el rango de intensidad entre estos percentiles.
 
@@ -155,5 +155,119 @@ Como se puede apreciar en el diagrama de la figura \ref{fig:diagramaPipeline}, e
 
 \subsubsection{Umbralización}
 
+En este punto nos encontramos con una imagen preprocesada en escala de grises. Para conseguir segmentar las gotas necesitamos diferenciar los píxeles que pertenecen a las gotas de los que pertenecen al fondo. Para ello, se ha implementado una umbralización adaptativa gaussiana, que nos devuelve un frame binarizado, donde los píxeles blancos (255) corresponden a gotas y los píxeles negros (0) corresponden al fondo. 
+
+De todas los algoritmos de umbralización explicados en \ref{subsec:segmentacion}, se ha escogido la umbralización por media local gaussiana, gracias a que al ser local, es mucho más robusta en imágenes que no poseen las mismas condiciones de iluminación en todas las regiones.
+
+La implementación de este método se ha realizado utilizando el método \texttt{adaptiveThreshold} de la biblioteca OpenCV, tomando los parámetros de tamaño de bloque y C de la interfaz de usuario.
+\\
+\begin{lstlisting}[language=Python, caption=Implementación de Umbralización Adaptativa Gaussiana en OpenCV]
+binary = cv2.adaptiveThreshold(
+    denoised, 255,
+    cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+    cv2.THRESH_BINARY_INV,
+    params['adaptive_block_size'],
+    params['adaptive_c']
+)
+\end{lstlisting}
+
+En la figura \ref{fig:thresholding} se puede apreciar el resultado de aplicar esta técnica, hay que destacar que, aún habiendo aplicado un proceso de denoising previo, se sigue observando algo de ruido de tipo sal y pimienta que se eliminará en los siguientes pasos. Quitando el ruido, se puede apreciar que las gotas enfocadas de mayor tamaño se segmentan correctamente, aunque las gotas más pequeñas y desenfocadas no se segmentan tan bien, lo que es un problema común en este tipo de vídeos. Sin embargo, el objetivo de esta etapa no es conseguir una segmentación perfecta, sino una segmentación lo suficientemente buena como para poder extraer características relevantes de las gotas y realizar un seguimiento posterior.
+
+\begin{figure}[ht]
+    \centering
+    \begin{subfigure}[t]{0.45\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{figures/denoisingNlMeans.png}
+        \caption{Denoised}  
+        \label{subfig:originalBinary}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[t]{0.45\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{figures/bin.png}
+        \caption{Binarizada}  
+        \label{subfig:bin}
+    \end{subfigure}
+    
+    \caption{Resultados de la umbralización adaptativa gaussiana.}
+    \label{fig:thresholding}
+\end{figure}
+
+\subsubsection{Operaciones morfológicas}
+
+Tras la umbralización, se han aplicado una serie de operaciones morfológicas para eliminar el ruido de tipo sal y pimienta presente en la imagen binarizada, así como para cerrar pequeños agujeros presentes en las gotas segmentadas. Para ello, se han implementado dos operaciones morfológicas: la apertura y el cierre, utilizando un kernel de forma elíptica de tamaño configurable desde la interfaz gráfica. La apertura se encarga de eliminar el ruido de tipo sal y pimienta, mientras que el cierre se encarga de cerrar pequeños agujeros presentes en las gotas segmentadas, mejorando así la calidad de la segmentación.
+La implementación de estas operaciones se ha realizado utilizando la función \texttt{cv2.morphologyEx} de OpenCV, aplicando primero la apertura y luego el cierre.
+
+El usuario puede configurar el tamaño del kernel utilizado en estas operaciones desde la interfaz gráfica, permitiendo ajustar el nivel de eliminación de ruido y cierre de agujeros según las características específicas de cada vídeo. Para ver la teoría detrás de estas operaciones morfológicas, se puede consultar \ref{subsec:segmentacion}.
+\\
+\begin{figure}[ht]
+    \centering
+    \begin{subfigure}[b]{0.45\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{figures/bin.png}
+        \caption{Binarizada}
+        \label{fig:BinMorf}
+    \end{subfigure}
+    \hfill 
+    \begin{subfigure}[b]{0.45\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{figures/OPEN.png}
+        \caption{Open}
+        \label{fig:open}
+    \end{subfigure}
+    \vspace{20pt} 
+    \begin{subfigure}[b]{0.45\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{figures/CLOSE.png}
+        \caption{Close}
+        \label{fig:close}
+    \end{subfigure}
+    \caption{Resultados de las operaciones morfológicas.}
+    \label{fig:morfologia}
+\end{figure}
+
+En la figura \ref{sub@fig:open} se aprecia que se ha limpiado gran parte del ruido tipo sal y pimienta, aunque también se abren pequeños huecos en la superficie de las gotas fruto de la erosión causada por la apertura. Dichos huecos se vuelven a cerrar tras aplicar la operación de cierre, como se aprecia en la figura \ref{sub@fig:close}.
+
+\subsubsection{Extracción de contornos}
+
+Una vez tenemos una imagen binarizada y lo más limpia posible, el siguiente paso es extraer los contornos de las gotas segmentadas. Para ello, se ha utilizado dos pasadas de la función \texttt{cv2.findContours} de OpenCV, que implementa el algoritmo de Suzuki \& Abe \cite{SUZUKI198532}, explicado en la sección \ref{subsec:segmentacion}.
+
+En la primera pasada, se detectan los contornos de las gotas y se rellenan dichos contornos para obtener una máscara binaria rellena, que se utiliza para eliminar los huecos internos de las gotas segmentadas. En esta pasada se ha optado por usar el modo de recuperación de contornos \texttt{cv2.RETR\_EXTERNAL}, que solo recupera los contornos externos, ya que no nos interesa recuperar los contornos internos de las gotas, y el método de aproximación de contornos \texttt{cv2.CHAIN\_APPROX\_SIMPLE}, que comprime los contornos eliminando los puntos redundantes, ya que no necesitamos una representación exacta de los contornos en esta etapa, sino una representación aproximada que nos permita rellenar las gotas segmentadas.
+
+En la segunda pasada, se vuelven a detectar los contornos sobre la máscara rellena, obteniendo así los contornos finales de las gotas segmentadas, que se utilizan para extraer las características relevantes de cada gota.
+En esta pasada se ha optado por usar de nuevo el modo de recuperación de contornos \texttt{cv2.RETR\_EXTERNAL}, y el método de aproximación de contornos \texttt{cv2.CHAIN\_APPROX\_NONE}, que devuelve todos los puntos del contorno sin comprimir, ya que en esta etapa necesitamos una representación exacta de los contornos para poder extraer las características relevantes de cada gota.
+
+\begin{figure}[ht]
+    \centering
+    \begin{subfigure}[b]{0.45\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{figures/CLOSE.png}
+        \caption{Close}
+        \label{fig:closeCont}
+    \end{subfigure}
+    \hfill 
+    \begin{subfigure}[b]{0.45\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{figures/cont1.png}
+        \caption{Pasada de rellenado}
+        \label{fig:filling}
+    \end{subfigure}
+    \vspace{20pt} 
+    \begin{subfigure}[b]{0.45\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{figures/cont2.png}
+        \caption{Contornos finales}
+        \label{fig:finalContours}
+    \end{subfigure}
+    \caption{Resultados de la extracción de contornos.}
+    \label{fig:contornos}
+\end{figure}
+
+En la figura \ref{fig:contornos} se puede apreciar el resultado de la extracción de contornos. En la primera pasada, se detectan los contornos de las gotas segmentadas y se rellenan dichos contornos para obtener una máscara binaria rellena, que se muestra en la figura \ref{sub@fig:filling}. En la segunda pasada, se vuelven a detectar los contornos sobre la máscara rellena, obteniendo así los contornos finales de las gotas segmentadas, que se muestran en la figura de color naranja \ref{sub@fig:finalContours}.
+
+\subsubsection{Filtro de área y circularidad}
+
+En este paso se aplican dos filtros para eliminar los contornos que no corresponden a gotas, basándose en el área y la circularidad de los contornos detectados. 
+
 \FloatBarrier
-\section{Backend}
+\section{Frontend}
