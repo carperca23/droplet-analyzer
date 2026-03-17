@@ -265,9 +265,89 @@ En esta pasada se ha optado por usar de nuevo el modo de recuperación de contor
 
 En la figura \ref{fig:contornos} se puede apreciar el resultado de la extracción de contornos. En la primera pasada, se detectan los contornos de las gotas segmentadas y se rellenan dichos contornos para obtener una máscara binaria rellena, que se muestra en la figura \ref{sub@fig:filling}. En la segunda pasada, se vuelven a detectar los contornos sobre la máscara rellena, obteniendo así los contornos finales de las gotas segmentadas, que se muestran en la figura de color naranja \ref{sub@fig:finalContours}.
 
-\subsubsection{Filtro de área y circularidad}
+\subsubsection{Filtro de área y circularidad}\label{subsubsec:filtros}
 
 En este paso se aplican dos filtros para eliminar los contornos que no corresponden a gotas, basándose en el área y la circularidad de los contornos detectados. 
 
+Para el filtro de área, se usa la función \texttt{cv2.contourArea} de OpenCV para calcular el área de cada contorno detectado, y se eliminan aquellos contornos cuyo área sea menor que un umbral mínimo o mayor que un umbral máximo, configurables desde la interfaz gráfica.
+\\
+Dicha función calcula el área usando la fórmula de Shoelace  \ref{equation:shoelace}, que integra el área de un polígono a partir de sus vértices.
+\begin{equation}
+    A = \frac{1}{2} \left| \sum_{i=0}^{n-1} \left( x_i \, (y_{i+1} - y_{i-1}) \right) \right|
+    \label{equation:shoelace}
+\end{equation}
+
+Para el filtro de circularidad, se calcula la circularidad de cada contorno utilizando la fórmula \ref{equation:circularity}, donde $A$ es el área del contorno y $P$ es el perímetro del contorno, calculado con la función \texttt{cv2.arcLength} de OpenCV. Se eliminan aquellos contornos cuya circularidad sea menor que un umbral mínimo, también configurable desde la interfaz gráfica.
+\begin{equation}
+    C = \frac{4 \pi A}{P^2}
+    \label{equation:circularity}
+\end{equation}
+
+En la figura \ref{fig:filtros} se pueden apreciar los resultados de aplicar estos filtros, en rojo los contornos eliminados y en verde los contornos conservados. En la figura \ref{sub@subfig:filtroarea} se muestra el resultado del filtro de área, donde se han eliminado los contornos que corresponden a gotas demasiado pequeñas o demasiado grandes. En la figura \ref{sub@subfig:filtrocircularidad} se muestra el resultado del filtro de circularidad, donde se ha conseguido eliminar algunos contornos que no pertenecían a gotas.
+
+\begin{figure}[ht]
+    \centering
+    \begin{subfigure}[t]{0.49\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{figures/filtroarea.png}
+        \caption{Filtro de área}  
+        \label{subfig:filtroarea}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[t]{0.49\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{figures/filtrocircularidad.png}
+        \caption{Filtro de circularidad ($C > 0.5$)}  
+        \label{subfig:filtrocircularidad}
+    \end{subfigure}
+    
+    \caption{Resultados de los filtros de área y circularidad.}
+    \label{fig:filtros}
+\end{figure}
+
+\subsubsection{Mediciones}
+
+Una vez que tenemos los contronos filtrados, el siguiente paso es extraer y guardar las siguientes características de cada gota: centroide, área, perímetro, diámetro equivalente, circularidad, redondez, bounding box y la máscara.
+
+El área, el perímetro y la circularidad se calculan como se ha explicado en el apartado anterior \ref{subsubsec:filtros}.
+
+El \negritas{centroide} es el centro de masa geometrico del contorno. Se calcula a partir de los momentos de imagen \cite{1057692HU}\cite{bradski2008learning}, que son integrales ponderadas de la distribución de intensidad. Para una región binaria, el momento de orden $p, q$ se define como:
+\begin{equation}
+    M_{pq} = \sum_{x} \sum_{y} x^p \, y^q \, I(x,y)
+\end{equation}
+Donde $I(x,y)$ es 0 o 1 dependiendo de si el píxel se encuentra dentro del contorno o no. El centroide $(C_x, C_y)$ se calcula a partir de los momentos de la siguiente manera:
+\begin{equation}
+    c_x = \frac{M_{10}}{M_{00}}, \qquad c_y = \frac{M_{01}}{M_{00}}
+\end{equation}
+Donde $M_{00}$ es el área del contorno en píxeles. En el caso de que $M_{00}$ sea igual a 0, lo que indicaría un contorno sin área, se ha optado por calcular el centroide a partir de la bounding box del contorno, tomando el centro de dicha bounding box como el centroide del contorno.
+
+Los momentos de imagen son descriptores estadísticos que tinenen muchas aplicaciones en el procesamiento de imágenes, como la extracción de características, la clasificación y el reconocimiento de objetos. En nuestro caso, solo hemos visto una breve pincelada aplicada al cálculo del centroide. En \ref{lst:centroide} se muestra la implementación de este cálculo a partir de los momentos de imagen utilizando OpenCV.
+
+\begin{lstlisting}[language=Python, caption={Cálculo del centroide a partir de los momentos de imagen.}, label={lst:centroide}]
+    M = cv2.moments(cnt)
+    if M["m00"] != 0:
+        centroid_x = float(M["m10"] / M["m00"])
+        centroid_y = float(M["m01"] / M["m00"])
+    else:
+        x_box, y_box, w_box, h_box = cv2.boundingRect(cnt)
+        centroid_x, centroid_y = x_box + w_box/2, y_box + h_box/2
+\end{lstlisting}
+
+El \negritas{diámetro equivalente} es el diámetro que tendría un círculo hipotético con la misma área que el contorno. Se calcula despejeando $d$ en la fórmula del área de un círculo:
+\begin{equation}
+    A = \pi \left(\frac{d}{2}\right)^2 \implies d = 2\sqrt{\frac{A}{\pi}}
+\end{equation}
+
+La \negritas{redondez} es una medida distinta a la circularidad, se ha tomado la decisión de incluirla ya que, a diferencia de la circularidad, no se ve afectada por las irregularidades en el borde del contorno, ya que se basa en el eje mayor de la elipse ajustada al contorno, en lugar de basarse en el perímetro del contorno \cite{russ2011image}:
+\begin{equation}
+    R = \frac{4A}{\pi \cdot MA^2}
+\end{equation}
+Donde $MA$ es el eje mayor de la elipse ajustada al contorno, que se calcula utilizando la función \texttt{cv2.fitEllipse}, que ajusta una elipse a un conjunto de puntos (en nuestro caso, los puntos del contorno).
+
+La \negritas{bounding box} es el rectángulo mínimo que encierra completamente el contorno. Se calcula utilizando la función \texttt{cv2.boundingRect}, que devuelve las coordenadas del vértice superior izquierdo de la bounding box, así como su ancho y alto.
+
+Finalmente, la máscara de cada gota se obtiene rellenando el contorno de la gota en una imagen binaria del mismo tamaño que el frame original, utilizando la función \texttt{cv2.drawContours}  con el parámetro de grosor establecido en $-1$ para rellenar el contorno.
+
+Todo esto se almacena en una lista de diccionarios, donde cada diccionario corresponde a una gota y contiene las características mencionadas anteriormente. 
 \FloatBarrier
 \section{Frontend}

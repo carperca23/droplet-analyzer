@@ -22,7 +22,7 @@ import sys
 DEFAULT_PARAMS = {
     'min_droplet_area': 10,
     'max_droplet_area': 5000,
-    'min_droplet_circularity': 0.6,
+    'min_droplet_circularity': 0.4,
     'clahe_clip_limit': 2.0,
     'denoise_strength': 10,
     'adaptive_block_size': 11,
