@@ -7,6 +7,8 @@ import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 import threading
 import os
+import queue
+import time
 
 from droplet_analyzer import DropletAnalyzer
 from plotter import DropletPlotter
@@ -14,598 +16,856 @@ from plotter import DropletPlotter
 
 class DropletAnalyzerGUI:
     """Interfaz gráfica para el análisis de gotas"""
-    
+
     def __init__(self, root):
         self.root = root
         self.root.title("Analizador de Gotas - Droplet Analyzer")
-        self.root.geometry("1200x800")
-        
-        # Variables
+        self.root.geometry("1350x900")
+
+        # Variables de estado
         self.video_path = None
         self.analyzer = None
         self.plotter = None
         self.output_dir = 'output'
         self.processing = False
-        
+
+        # Cola para mensajes del log desde hilos secundarios
+        self._log_queue = queue.Queue()
+
+        # Cola para previsualización en tiempo real (frames)
+        self._preview_queue = queue.Queue(maxsize=2)
+        self._preview_win = None   # ventana Toplevel de previsualización
+
         # Variables de escala
-        self.pixel_scale_var = tk.DoubleVar(value=0.0)   # 0 = desactivado
+        self.pixel_scale_var = tk.DoubleVar(value=0.0)
         self.scale_unit_var = tk.StringVar(value='µm')
-        
+
         # Variables de nombres de archivo
         self.csv_filename_var = tk.StringVar(value='droplet_data')
         self.plots_filename_var = tk.StringVar(value='analysis_plots')
         self.video_out_filename_var = tk.StringVar(value='tracked_droplets')
         self.pre_frame_filename_var = tk.StringVar(value='frame_preprocesado')
         self.bin_frame_filename_var = tk.StringVar(value='frame_binarizado')
-        self.save_pre_frame_var = tk.BooleanVar(value=True)   # guardar frame preprocesado
-        self.save_bin_frame_var = tk.BooleanVar(value=True)   # guardar frame binarizado
-        
+        self.save_pre_frame_var = tk.BooleanVar(value=True)
+        self.save_bin_frame_var = tk.BooleanVar(value=True)
+
+        # Toggle para líneas de tracking
+        self.show_tracking_lines_var = tk.BooleanVar(value=True)
+
         # Crear interfaz
         self.create_widgets()
-        
-        # Estilo
         self.setup_styles()
-    
+
+        # Arrancar el consumidor del log
+        self.root.after(100, self._poll_log_queue)
+
+    # ─────────────────────────────────────────────────────────────
+    #  ESTILOS
+    # ─────────────────────────────────────────────────────────────
     def setup_styles(self):
-        """Configura estilos de la interfaz"""
         style = ttk.Style()
         style.theme_use('clam')
-        
-        # Colores
         style.configure('TFrame', background='#f0f0f0')
         style.configure('Title.TLabel', font=('Arial', 16, 'bold'), background='#f0f0f0')
         style.configure('Header.TLabel', font=('Arial', 11, 'bold'), background='#f0f0f0')
         style.configure('TButton', font=('Arial', 10))
-        style.configure('Action.TButton', font=('Arial', 10, 'bold'))
-    
+        style.configure('Action.TButton', font=('Arial', 11, 'bold'))
+
+    # ─────────────────────────────────────────────────────────────
+    #  CONSTRUCCIÓN DE WIDGETS
+    # ─────────────────────────────────────────────────────────────
     def create_widgets(self):
-        """Crea los widgets de la interfaz"""
-        
-        # Frame principal
         main_frame = ttk.Frame(self.root, padding="10")
         main_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
-        
         self.root.columnconfigure(0, weight=1)
         self.root.rowconfigure(0, weight=1)
-        main_frame.columnconfigure(1, weight=1)
-        main_frame.rowconfigure(4, weight=1)
-        
+        main_frame.columnconfigure(0, weight=3)
+        main_frame.columnconfigure(1, weight=2)
+        main_frame.rowconfigure(5, weight=1)
+
         # Título
-        title_label = ttk.Label(main_frame, text="Analizador de Gotas", 
-                               style='Title.TLabel')
-        title_label.grid(row=0, column=0, columnspan=3, pady=10)
-        
-        # ============ SECCIÓN 1: Carga de video ============
-        video_frame = ttk.LabelFrame(main_frame, text="1. Cargar Video", padding="10")
-        video_frame.grid(row=1, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=5)
+        ttk.Label(main_frame, text="Analizador de Gotas",
+                  style='Title.TLabel').grid(row=0, column=0, columnspan=2, pady=(0, 8))
+
+        # ── Sección 1: Video ──────────────────────────────────────
+        video_frame = ttk.LabelFrame(main_frame, text="1. Cargar Video", padding="8")
+        video_frame.grid(row=1, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=3)
         video_frame.columnconfigure(1, weight=1)
-        
+
         self.video_label = ttk.Label(video_frame, text="No se ha cargado ningún video")
-        self.video_label.grid(row=0, column=0, columnspan=2, sticky=tk.W, pady=5)
-        
-        ttk.Button(video_frame, text="Seleccionar Video", 
-                  command=self.load_video).grid(row=1, column=0, sticky=tk.W, padx=5)
-        
+        self.video_label.grid(row=0, column=0, columnspan=2, sticky=tk.W, pady=3)
+
+        ttk.Button(video_frame, text="Seleccionar Video",
+                   command=self.load_video).grid(row=1, column=0, sticky=tk.W, padx=5)
         self.video_info_label = ttk.Label(video_frame, text="")
         self.video_info_label.grid(row=1, column=1, sticky=tk.W, padx=10)
-        
-        # ============ SECCIÓN 2: Escala de calibración ============
-        scale_frame = ttk.LabelFrame(main_frame, text="2. Calibración (píxel → distancia real)", 
-                                     padding="10")
-        scale_frame.grid(row=2, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=5)
-        scale_frame.columnconfigure(1, weight=1)
-        
-        ttk.Label(scale_frame, text="Escala (unidad/px):").grid(row=0, column=0, sticky=tk.W, padx=5)
-        scale_entry = ttk.Entry(scale_frame, textvariable=self.pixel_scale_var, width=12)
-        scale_entry.grid(row=0, column=1, sticky=tk.W, padx=5)
+
+        # ── Sección 2: Calibración ───────────────────────────────
+        scale_frame = ttk.LabelFrame(main_frame,
+                                     text="2. Calibración (píxel → distancia real)",
+                                     padding="8")
+        scale_frame.grid(row=2, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=3)
+
+        ttk.Label(scale_frame, text="Escala (unidad/px):").grid(
+            row=0, column=0, sticky=tk.W, padx=5)
+        ttk.Entry(scale_frame, textvariable=self.pixel_scale_var, width=12).grid(
+            row=0, column=1, sticky=tk.W, padx=5)
         ttk.Label(scale_frame, text="  Unidad:").grid(row=0, column=2, sticky=tk.W)
-        ttk.Entry(scale_frame, textvariable=self.scale_unit_var, width=8).grid(row=0, column=3, sticky=tk.W, padx=5)
-        ttk.Label(scale_frame, 
-                  text="(Dejar en 0 para trabajar en píxeles. Ej: 0.325 µm/px)", 
+        ttk.Entry(scale_frame, textvariable=self.scale_unit_var, width=8).grid(
+            row=0, column=3, sticky=tk.W, padx=5)
+        ttk.Label(scale_frame,
+                  text="(0 = trabajar en píxeles · Ej: 0.325 µm/px)",
                   foreground='gray').grid(row=0, column=4, sticky=tk.W, padx=10)
-        
-        # ============ SECCIÓN 3: Nombres de archivos de salida ============
-        names_frame = ttk.LabelFrame(main_frame, text="3. Nombres de Archivos de Salida", 
-                                     padding="10")
-        names_frame.grid(row=3, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=5)
-        for col in range(7):
+
+        # ── Sección 3: Nombres de archivos ───────────────────────
+        names_frame = ttk.LabelFrame(main_frame,
+                                     text="3. Nombres de Archivos de Salida",
+                                     padding="8")
+        names_frame.grid(row=3, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=3)
+        for col in range(6):
             names_frame.columnconfigure(col, weight=1 if col % 3 == 1 else 0)
-        
-        # Fila 0: CSV y Gráficos (sin checkbox, se generan bajo demanda)
-        ttk.Label(names_frame, text="CSV de datos:").grid(row=0, column=0, sticky=tk.W, padx=5, pady=2)
-        ttk.Entry(names_frame, textvariable=self.csv_filename_var, width=22).grid(row=0, column=1, sticky=(tk.W, tk.E), padx=2, pady=2)
-        ttk.Label(names_frame, text=".csv", foreground='gray').grid(row=0, column=2, sticky=tk.W)
-        
-        ttk.Label(names_frame, text="Gráficos:").grid(row=0, column=3, sticky=tk.W, padx=(15,5), pady=2)
-        ttk.Entry(names_frame, textvariable=self.plots_filename_var, width=22).grid(row=0, column=4, sticky=(tk.W, tk.E), padx=2, pady=2)
-        ttk.Label(names_frame, text=".png", foreground='gray').grid(row=0, column=5, sticky=tk.W)
-        
-        # Fila 1: Video rastreado (sin checkbox)
-        ttk.Label(names_frame, text="Video rastreado:").grid(row=1, column=0, sticky=tk.W, padx=5, pady=2)
-        ttk.Entry(names_frame, textvariable=self.video_out_filename_var, width=22).grid(row=1, column=1, sticky=(tk.W, tk.E), padx=2, pady=2)
-        ttk.Label(names_frame, text=".avi", foreground='gray').grid(row=1, column=2, sticky=tk.W)
-        
-        # Fila 2: Frame preprocesado — con checkbox
+
+        ttk.Label(names_frame, text="CSV datos:").grid(
+            row=0, column=0, sticky=tk.W, padx=5, pady=2)
+        ttk.Entry(names_frame, textvariable=self.csv_filename_var, width=22).grid(
+            row=0, column=1, sticky=(tk.W, tk.E), padx=2)
+        ttk.Label(names_frame, text=".csv", foreground='gray').grid(
+            row=0, column=2, sticky=tk.W)
+
+        ttk.Label(names_frame, text="Gráficos:").grid(
+            row=0, column=3, sticky=tk.W, padx=(15, 5), pady=2)
+        ttk.Entry(names_frame, textvariable=self.plots_filename_var, width=22).grid(
+            row=0, column=4, sticky=(tk.W, tk.E), padx=2)
+        ttk.Label(names_frame, text=".png", foreground='gray').grid(
+            row=0, column=5, sticky=tk.W)
+
+        ttk.Label(names_frame, text="Video rastreado:").grid(
+            row=1, column=0, sticky=tk.W, padx=5, pady=2)
+        ttk.Entry(names_frame, textvariable=self.video_out_filename_var, width=22).grid(
+            row=1, column=1, sticky=(tk.W, tk.E), padx=2)
+        ttk.Label(names_frame, text=".avi", foreground='gray').grid(
+            row=1, column=2, sticky=tk.W)
+
         self.pre_frame_check = ttk.Checkbutton(
-            names_frame, text="Frame preprocesado:", variable=self.save_pre_frame_var,
-            command=self._toggle_pre_frame_entry
-        )
+            names_frame, text="Frame preprocesado:",
+            variable=self.save_pre_frame_var,
+            command=self._toggle_pre_frame_entry)
         self.pre_frame_check.grid(row=2, column=0, sticky=tk.W, padx=5, pady=2)
-        self.pre_frame_entry = ttk.Entry(names_frame, textvariable=self.pre_frame_filename_var, width=22)
-        self.pre_frame_entry.grid(row=2, column=1, sticky=(tk.W, tk.E), padx=2, pady=2)
-        ttk.Label(names_frame, text=".png", foreground='gray').grid(row=2, column=2, sticky=tk.W)
-        
-        # Fila 2 (col 3): Frame binarizado — con checkbox
+        self.pre_frame_entry = ttk.Entry(
+            names_frame, textvariable=self.pre_frame_filename_var, width=22)
+        self.pre_frame_entry.grid(row=2, column=1, sticky=(tk.W, tk.E), padx=2)
+        ttk.Label(names_frame, text=".png", foreground='gray').grid(
+            row=2, column=2, sticky=tk.W)
+
         self.bin_frame_check = ttk.Checkbutton(
-            names_frame, text="Frame binarizado:", variable=self.save_bin_frame_var,
-            command=self._toggle_bin_frame_entry
-        )
-        self.bin_frame_check.grid(row=2, column=3, sticky=tk.W, padx=(15,5), pady=2)
-        self.bin_frame_entry = ttk.Entry(names_frame, textvariable=self.bin_frame_filename_var, width=22)
-        self.bin_frame_entry.grid(row=2, column=4, sticky=(tk.W, tk.E), padx=2, pady=2)
-        ttk.Label(names_frame, text=".png", foreground='gray').grid(row=2, column=5, sticky=tk.W)
-        
-        # ============ SECCIÓN 4: Parámetros ============
-        params_frame = ttk.LabelFrame(main_frame, text="4. Parámetros de Segmentación", 
-                                     padding="10")
-        params_frame.grid(row=4, column=0, columnspan=2, sticky=(tk.W, tk.E, tk.N, tk.S), 
-                         pady=5, padx=(0, 5))
-        
-        # Crear scrollable frame para parámetros
-        canvas = tk.Canvas(params_frame, height=400)
+            names_frame, text="Frame binarizado:",
+            variable=self.save_bin_frame_var,
+            command=self._toggle_bin_frame_entry)
+        self.bin_frame_check.grid(row=2, column=3, sticky=tk.W, padx=(15, 5), pady=2)
+        self.bin_frame_entry = ttk.Entry(
+            names_frame, textvariable=self.bin_frame_filename_var, width=22)
+        self.bin_frame_entry.grid(row=2, column=4, sticky=(tk.W, tk.E), padx=2)
+        ttk.Label(names_frame, text=".png", foreground='gray').grid(
+            row=2, column=5, sticky=tk.W)
+
+        # ── Sección 4: Parámetros (izquierda) ────────────────────
+        params_frame = ttk.LabelFrame(
+            main_frame, text="4. Parámetros de Segmentación", padding="8")
+        params_frame.grid(row=4, column=0, rowspan=2,
+                          sticky=(tk.W, tk.E, tk.N, tk.S), pady=3, padx=(0, 5))
+        params_frame.columnconfigure(0, weight=1)
+        params_frame.rowconfigure(0, weight=1)
+
+        canvas = tk.Canvas(params_frame, height=350)
         scrollbar = ttk.Scrollbar(params_frame, orient="vertical", command=canvas.yview)
         scrollable_frame = ttk.Frame(canvas)
-        
         scrollable_frame.bind(
             "<Configure>",
-            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
-        )
-        
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
         canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
         canvas.configure(yscrollcommand=scrollbar.set)
-        
         canvas.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
-        
-        # Parámetros ajustables
+
         self.param_vars = {}
         self.create_parameter_controls(scrollable_frame)
-        
-        # ============ SECCIÓN 3: Control y Progreso ============
-        control_frame = ttk.LabelFrame(main_frame, text="5. Procesamiento", padding="10")
-        control_frame.grid(row=4, column=2, sticky=(tk.W, tk.E, tk.N, tk.S), pady=5)
-        control_frame.columnconfigure(0, weight=1)
-        
-        # Botones de control
-        btn_frame = ttk.Frame(control_frame)
-        btn_frame.grid(row=0, column=0, sticky=(tk.W, tk.E), pady=5)
-        btn_frame.columnconfigure(0, weight=1)
-        btn_frame.columnconfigure(1, weight=1)
-        
-        self.process_btn = ttk.Button(btn_frame, text="▶ Procesar Video", 
-                                     command=self.process_video, 
-                                     style='Action.TButton')
-        self.process_btn.grid(row=0, column=0, padx=5, pady=5, sticky=(tk.W, tk.E))
-        
-        self.cancel_btn = ttk.Button(btn_frame, text="⏹ Cancelar", 
-                                    command=self.cancel_processing,
-                                    state=tk.DISABLED)
-        self.cancel_btn.grid(row=0, column=1, padx=5, pady=5, sticky=(tk.W, tk.E))
-        
-        # Barra de progreso
-       # ttk.Label(control_frame, text="Progreso:").grid(row=1, column=0, sticky=tk.W, pady=5)
+
+        # ── Sección 5: Control + Log (derecha) ───────────────────
+        right_frame = ttk.Frame(main_frame)
+        right_frame.grid(row=4, column=1, rowspan=2,
+                         sticky=(tk.W, tk.E, tk.N, tk.S), pady=3)
+        right_frame.columnconfigure(0, weight=1)
+        right_frame.rowconfigure(1, weight=1)
+        right_frame.rowconfigure(2, weight=1)
+
+        # ── 5a: Botón único de análisis ──────────────────────────
+        action_frame = ttk.LabelFrame(right_frame, text="5. Procesamiento", padding="10")
+        action_frame.grid(row=0, column=0, sticky=(tk.W, tk.E), pady=(0, 5))
+        action_frame.columnconfigure(0, weight=1)
+        action_frame.columnconfigure(1, weight=1)
+
+        self.run_btn = ttk.Button(
+            action_frame,
+            text="▶▶ ANALIZAR TODO",
+            command=self.run_full_pipeline,
+            style='Action.TButton')
+        self.run_btn.grid(row=0, column=0, padx=5, pady=8, sticky=(tk.W, tk.E))
+
+        self.cancel_btn = ttk.Button(
+            action_frame, text="⏹ Cancelar",
+            command=self.cancel_processing, state=tk.DISABLED)
+        self.cancel_btn.grid(row=0, column=1, padx=5, pady=8, sticky=(tk.W, tk.E))
+
         self.progress_var = tk.IntVar()
-        self.progress_bar = ttk.Progressbar(control_frame, variable=self.progress_var, 
-                                           maximum=100)
-        self.progress_bar.grid(row=1, column=0, sticky=(tk.W, tk.E), pady=5)
-        
-        self.progress_label = ttk.Label(control_frame, text="")
-        self.progress_label.grid(row=2, column=0, sticky=tk.W, pady=5)
-        
-        # Estadísticas
-        stats_subframe = ttk.LabelFrame(control_frame, text="Estadísticas", padding="10")
-        stats_subframe.grid(row=3, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), pady=10)
-        stats_subframe.rowconfigure(0, weight=1)
-        
-        self.stats_text = tk.Text(stats_subframe, height=15, width=40, 
-                                 font=('Courier', 9), state=tk.DISABLED)
-        self.stats_text.pack(fill=tk.BOTH, expand=True)
-        
-        # Botones de exportación
-        export_frame = ttk.Frame(control_frame)
-        export_frame.grid(row=5, column=0, sticky=(tk.W, tk.E), pady=10)
-        export_frame.columnconfigure(0, weight=1)
-        
-        self.export_csv_btn = ttk.Button(export_frame, text="💾 Exportar CSV", 
-                                        command=self.export_csv, state=tk.DISABLED)
-        self.export_csv_btn.grid(row=0, column=0, pady=2, sticky=(tk.W, tk.E))
-        
-        self.generate_plots_btn = ttk.Button(export_frame, text="📊 Generar Gráficos", 
-                                            command=self.generate_plots, state=tk.DISABLED)
-        self.generate_plots_btn.grid(row=1, column=0, pady=2, sticky=(tk.W, tk.E))
-        
-        self.save_frames_btn = ttk.Button(export_frame, text="🔬 Guardar Frames Diagnóstico",
-                                          command=self.save_diagnostic_frames)
-        self.save_frames_btn.grid(row=2, column=0, pady=2, sticky=(tk.W, tk.E))
-        
-        self.open_folder_btn = ttk.Button(export_frame, text="📁 Abrir Carpeta Resultados", 
-                                         command=self.open_output_folder)
-        self.open_folder_btn.grid(row=3, column=0, pady=2, sticky=(tk.W, tk.E))
-        
-        # ============ SECCIÓN 6: Estado ============
+        self.progress_bar = ttk.Progressbar(
+            action_frame, variable=self.progress_var, maximum=100)
+        self.progress_bar.grid(row=1, column=0, columnspan=2,
+                               sticky=(tk.W, tk.E), pady=3, padx=5)
+        self.progress_label = ttk.Label(action_frame, text="")
+        self.progress_label.grid(row=2, column=0, columnspan=2, sticky=tk.W, padx=5)
+
+        # Toggle líneas de tracking
+        ttk.Checkbutton(
+            action_frame,
+            text="🔵 Mostrar líneas de tracking en video",
+            variable=self.show_tracking_lines_var
+        ).grid(row=3, column=0, columnspan=2, sticky=tk.W, padx=5, pady=4)
+
+        # Botones auxiliares
+        aux_frame = ttk.Frame(action_frame)
+        aux_frame.grid(row=4, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=4)
+        aux_frame.columnconfigure(0, weight=1)
+        aux_frame.columnconfigure(1, weight=1)
+
+        ttk.Button(aux_frame, text="🔬 Frames Diagnóstico",
+                   command=self.save_diagnostic_frames).grid(
+            row=0, column=0, padx=3, sticky=(tk.W, tk.E))
+        ttk.Button(aux_frame, text="📁 Abrir Resultados",
+                   command=self.open_output_folder).grid(
+            row=0, column=1, padx=3, sticky=(tk.W, tk.E))
+
+        # ── 5b: Log de procesamiento ─────────────────────────────
+        log_frame = ttk.LabelFrame(right_frame, text="Log de procesamiento", padding="5")
+        log_frame.grid(row=1, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), pady=(0, 5))
+        log_frame.columnconfigure(0, weight=1)
+        log_frame.rowconfigure(0, weight=1)
+
+        self.log_text = tk.Text(
+            log_frame, height=10, width=46,
+            font=('Courier', 8), state=tk.DISABLED,
+            bg='#1a1a2e', fg='#00ff88',
+            insertbackground='white')
+        log_scroll = ttk.Scrollbar(log_frame, orient='vertical',
+                                   command=self.log_text.yview)
+        self.log_text.configure(yscrollcommand=log_scroll.set)
+        self.log_text.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        log_scroll.grid(row=0, column=1, sticky=(tk.N, tk.S))
+
+        # ── 5c: Estadísticas ─────────────────────────────────────
+        stats_frame = ttk.LabelFrame(right_frame, text="Estadísticas", padding="5")
+        stats_frame.grid(row=2, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        stats_frame.columnconfigure(0, weight=1)
+        stats_frame.rowconfigure(0, weight=1)
+
+        self.stats_text = tk.Text(
+            stats_frame, height=14, width=46,
+            font=('Courier', 8), state=tk.DISABLED)
+        stats_scroll = ttk.Scrollbar(stats_frame, orient='vertical',
+                                     command=self.stats_text.yview)
+        self.stats_text.configure(yscrollcommand=stats_scroll.set)
+        self.stats_text.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        stats_scroll.grid(row=0, column=1, sticky=(tk.N, tk.S))
+
+        # ── Barra de estado ──────────────────────────────────────
         status_frame = ttk.Frame(main_frame)
-        status_frame.grid(row=5, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=5)
+        status_frame.grid(row=6, column=0, columnspan=2,
+                          sticky=(tk.W, tk.E), pady=3)
         status_frame.columnconfigure(1, weight=1)
-        
         ttk.Label(status_frame, text="Estado:").grid(row=0, column=0, sticky=tk.W)
         self.status_label = ttk.Label(status_frame, text="Listo", foreground='green')
         self.status_label.grid(row=0, column=1, sticky=tk.W, padx=10)
-    
+
+    # ─────────────────────────────────────────────────────────────
+    #  PARÁMETROS
+    # ─────────────────────────────────────────────────────────────
     def create_parameter_controls(self, parent):
-        """Crea controles para los parámetros"""
         algo_frame = ttk.Frame(parent)
         algo_frame.grid(row=0, column=0, sticky=(tk.W, tk.E), pady=5, padx=5)
         algo_frame.columnconfigure(1, weight=1)
 
-        ttk.Label(algo_frame, text="Método de contraste:", width=30).grid(row=0, column=0, sticky=tk.W)
-        
+        ttk.Label(algo_frame, text="Método de contraste:", width=32).grid(
+            row=0, column=0, sticky=tk.W)
         self.algo_var = tk.StringVar(value="ImageJ (Global)")
         algo_combo = ttk.Combobox(
-            algo_frame, 
-            textvariable=self.algo_var, 
-            values=["ImageJ (Global)", "CLAHE (Local)"],
-            state="readonly"
-        )
+            algo_frame, textvariable=self.algo_var,
+            values=["ImageJ (Global)", "CLAHE (Local)"], state="readonly")
         algo_combo.grid(row=0, column=1, columnspan=2, sticky=(tk.W, tk.E), padx=5)
         self.algo_var.trace_add("write", self._on_algo_change)
 
         self.param_widgets = {}
 
         params_info = [
-            ('min_droplet_area', 'Área mínima de gota (px²)', 1, 500, 10),
-            ('max_droplet_area', 'Área máxima de gota (px²)', 100, 10000, 5000),
-            ('min_droplet_circularity', 'Circularidad mínima (0-1)', 0.0, 1.0, 0.6),
-            ('max_tracking_distance', 'Distancia máxima tracking (px)', 5, 200, 50),
-            ('clahe_clip_limit', 'Contraste CLAHE', 0.5, 10.0, 2.0),
-            ('denoise_strength', 'Fuerza reducción ruido', 1, 30, 10),
-            ('adaptive_block_size', 'Tamaño bloque adaptativo', 3, 31, 11),
-            ('adaptive_c', 'Constante adaptativa', -10, 10, 2),
-            ('morphology_kernel_size', 'Tamaño kernel morfología', 1, 15, 3),
+            ('min_droplet_area',        'Área mínima gota (px²)',        1,    500,   10),
+            ('max_droplet_area',        'Área máxima gota (px²)',       100,  10000, 5000),
+            ('min_droplet_circularity', 'Circularidad mínima (0-1)',    0.0,    1.0,  0.6),
+            ('min_droplet_roundness',   'Redondez mínima (0-1)',        0.0,    1.0,  0.0),
+            ('max_tracking_distance',   'Dist. máxima tracking (px)',     5,    200,   50),
+            ('clahe_clip_limit',        'Contraste CLAHE',              0.5,   10.0,  2.0),
+            ('denoise_strength',        'Fuerza reducción ruido',         1,     30,   10),
+            ('adaptive_block_size',     'Tamaño bloque adaptativo',       3,     31,   11),
+            ('adaptive_c',              'Constante adaptativa',         -10,     10,    2),
+            ('morphology_kernel_size',  'Tamaño kernel morfología',       1,     15,    3),
         ]
-        
-        for i, (param_name, label, min_val, max_val, default_val) in enumerate(params_info, start=1):
+
+        for i, (param_name, label, min_val, max_val, default_val) in \
+                enumerate(params_info, start=1):
             param_frame = ttk.Frame(parent)
             param_frame.grid(row=i, column=0, sticky=(tk.W, tk.E), pady=2, padx=5)
             param_frame.columnconfigure(1, weight=1)
-            
-            lbl = ttk.Label(param_frame, text=label, width=30)
+
+            lbl = ttk.Label(param_frame, text=label, width=32)
             lbl.grid(row=0, column=0, sticky=tk.W)
-            
+
             if isinstance(default_val, float):
                 var = tk.DoubleVar(value=default_val)
             else:
                 var = tk.IntVar(value=default_val)
             self.param_vars[param_name] = var
-            
+
             cmd = None
             if param_name == 'adaptive_block_size':
                 cmd = lambda v, pn=param_name: self.validate_odd_parameter(pn)
-            
-            scale = ttk.Scale(param_frame, from_=min_val, to=max_val, variable=var, orient=tk.HORIZONTAL, command=cmd)
+
+            scale = ttk.Scale(param_frame, from_=min_val, to=max_val,
+                              variable=var, orient=tk.HORIZONTAL, command=cmd)
             scale.grid(row=0, column=1, sticky=(tk.W, tk.E), padx=5)
-            
+
             entry = ttk.Entry(param_frame, textvariable=var, width=8)
             entry.grid(row=0, column=2, sticky=tk.W, padx=5)
-            
-            reset_btn = ttk.Button(param_frame, text="↺", width=3, command=lambda v=var, d=default_val: v.set(d))
+
+            reset_btn = ttk.Button(param_frame, text="↺", width=3,
+                                   command=lambda v=var, d=default_val: v.set(d))
             reset_btn.grid(row=0, column=3)
 
             self.param_widgets[param_name] = [lbl, scale, entry, reset_btn]
 
+        # Nota informativa sobre áreas
+        ttk.Label(
+            parent,
+            text="ℹ️  Las áreas se introducen en px². Si hay escala configurada, "
+                 "el equivalente en µm² aparece en el log al analizar.",
+            foreground='#555555', wraplength=400, justify=tk.LEFT
+        ).grid(row=len(params_info) + 1, column=0, sticky=tk.W, padx=5, pady=4)
+
         self._on_algo_change()
-    
+
+    def _on_algo_change(self, *args):
+        use_clahe = (self.algo_var.get() == "CLAHE (Local)")
+        state = tk.NORMAL if use_clahe else tk.DISABLED
+        for widget in self.param_widgets.get('clahe_clip_limit', []):
+            try:
+                widget.config(state=state)
+            except Exception:
+                pass
+
     def validate_odd_parameter(self, param_name):
-        """Asegura que ciertos parámetros sean impares"""
         value = int(self.param_vars[param_name].get())
         if value % 2 == 0:
             value += 1
         self.param_vars[param_name].set(value)
-    
+
+    def get_parameters_from_gui(self):
+        params = {}
+        for param_name, var in self.param_vars.items():
+            params[param_name] = var.get()
+        params['use_clahe'] = (self.algo_var.get() == "CLAHE (Local)")
+        return params
+
+    # ─────────────────────────────────────────────────────────────
+    #  CARGA DE VIDEO
+    # ─────────────────────────────────────────────────────────────
     def load_video(self):
-        """Carga un archivo de video"""
         filepath = filedialog.askopenfilename(
             title="Seleccionar video",
-            filetypes=[
-                ("Videos", "*.avi *.mp4 *.mov *.mkv"),
-                ("Todos los archivos", "*.*")
-            ]
+            filetypes=[("Videos", "*.avi *.mp4 *.mov *.mkv"),
+                       ("Todos los archivos", "*.*")]
         )
-        
         if filepath:
             self.video_path = filepath
             filename = os.path.basename(filepath)
             self.video_label.config(text=f"Video: {filename}")
-            
-            # Crear analizador temporal para obtener info
-            temp_analyzer = DropletAnalyzer(filepath, self.output_dir)
-            info_text = (f"{temp_analyzer.width}x{temp_analyzer.height}, "
-                        f"{temp_analyzer.fps:.1f} fps, "
-                        f"{temp_analyzer.total_frames} frames")
-            self.video_info_label.config(text=info_text)
-            
+            temp = DropletAnalyzer(filepath, self.output_dir)
+            self.video_info_label.config(
+                text=(f"{temp.width}x{temp.height}, "
+                      f"{temp.fps:.1f} fps, "
+                      f"{temp.total_frames} frames"))
             self.update_status("Video cargado", "green")
-    
-    def update_status(self, message, color="black"):
-        """Actualiza el mensaje de estado"""
-        self.status_label.config(text=message, foreground=color)
-    
-    def get_parameters_from_gui(self):
-        """Obtiene los parámetros de la GUI e incluye la elección del algoritmo"""
-        params = {}
-        for param_name, var in self.param_vars.items():
-            params[param_name] = var.get()
-        
-        # Añadimos el booleano del algoritmo
-        params['use_clahe'] = (self.algo_var.get() == "CLAHE (Local)")
-        
-        return params
-    
-    def process_video(self):
-        """Procesa el video en un hilo separado"""
+            self.log(f"Video cargado: {filename}")
+            self.log(f"  {temp.width}x{temp.height} · "
+                     f"{temp.fps:.1f} fps · {temp.total_frames} frames")
+
+    # ─────────────────────────────────────────────────────────────
+    #  PIPELINE COMPLETO (un solo clic)
+    # ─────────────────────────────────────────────────────────────
+    def run_full_pipeline(self):
         if not self.video_path:
             messagebox.showwarning("Advertencia", "Primero debes cargar un video")
             return
-        
         if self.processing:
             return
-        
+
         self.processing = True
-        self.process_btn.config(state=tk.DISABLED)
+        self.run_btn.config(state=tk.DISABLED)
         self.cancel_btn.config(state=tk.NORMAL)
+        self.progress_var.set(0)
+        self.progress_label.config(text="")
         self.update_status("Procesando...", "orange")
-        
-        # Crear analizador con parámetros actuales
+        self.log("=" * 42)
+        self.log("  INICIANDO ANÁLISIS COMPLETO")
+        self.log("=" * 42)
+
+        # Crear analizador
         self.analyzer = DropletAnalyzer(self.video_path, self.output_dir)
-        
-        # Actualizar parámetros
         params = self.get_parameters_from_gui()
-        for param_name, value in params.items():
-            self.analyzer.set_parameter(param_name, value)
-        
-        # Configurar escala
+        for pname, val in params.items():
+            self.analyzer.set_parameter(pname, val)
+
         scale_val = self.pixel_scale_var.get()
         unit = self.scale_unit_var.get().strip() or 'px'
         self.analyzer.set_scale(scale_val if scale_val > 0 else None, unit)
-        
-        # Configurar callback de progreso
+
+        if scale_val > 0:
+            min_area_px = self.param_vars['min_droplet_area'].get()
+            max_area_px = self.param_vars['max_droplet_area'].get()
+            factor = scale_val ** 2
+            self.log(f"Escala: {scale_val} {unit}/px  →  1 px² = {factor:.4f} {unit}²")
+            self.log(f"Área mín: {min_area_px:.0f} px² = {min_area_px * factor:.2f} {unit}²")
+            self.log(f"Área máx: {max_area_px:.0f} px² = {max_area_px * factor:.2f} {unit}²")
+
         self.analyzer.set_progress_callback(self.update_progress)
-        
-        # Ejecutar en hilo separado
-        thread = threading.Thread(target=self._process_video_thread)
-        thread.daemon = True
+
+        # Abrir ventana de previsualización
+        self._open_preview_window()
+
+        thread = threading.Thread(target=self._full_pipeline_thread, daemon=True)
         thread.start()
 
-    def _on_algo_change(self, *args):
-        """Maneja el cambio de algoritmo y actualiza la interfaz"""
-        use_clahe = (self.algo_var.get() == "CLAHE (Local)")
-        
-        # Opcional: Desactivar los controles de CLAHE si se usa ImageJ
-        state = tk.NORMAL if use_clahe else tk.DISABLED
-        for widget in self.param_widgets['clahe_clip_limit']:
-            try:
-                widget.config(state=state)
-            except:
-                pass
-
-    def _process_video_thread(self):
-        """Hilo de procesamiento del video"""
+    def _full_pipeline_thread(self):
         try:
+            # ── Paso 1: Procesar video ────────────────────────────
+            self._log_from_thread("► Paso 1/4: Procesando video...")
             vid_name = self.video_out_filename_var.get().strip() or 'tracked_droplets'
             if not vid_name.endswith('.avi'):
                 vid_name += '.avi'
-            success = self.analyzer.process_video(save_visualization=True,
-                                                   output_video_filename=vid_name)
-            
-            if success:
-                # Actualizar UI en el hilo principal
-                self.root.after(0, self._on_processing_complete)
-            else:
+            show_lines = self.show_tracking_lines_var.get()
+            success = self._process_video_with_lines(vid_name, show_lines)
+            if not success:
                 self.root.after(0, self._on_processing_cancelled)
-                
-        except Exception as e:
-            self.root.after(0, lambda error=str(e): self._on_processing_error(error))
-    
-    def _on_processing_complete(self):
-        """Callback cuando el procesamiento se completa"""
-        self.processing = False
-        self.process_btn.config(state=tk.NORMAL)
-        self.cancel_btn.config(state=tk.DISABLED)
-        self.export_csv_btn.config(state=tk.NORMAL)
-        self.generate_plots_btn.config(state=tk.NORMAL)
-        
-        # Mostrar estadísticas
-        self.display_statistics()
-        
-        self.update_status("¡Procesamiento completado!", "green")
-        messagebox.showinfo("Éxito", "El video ha sido procesado correctamente")
-    
-    def _on_processing_cancelled(self):
-        """Callback cuando el procesamiento se cancela"""
-        self.processing = False
-        self.process_btn.config(state=tk.NORMAL)
-        self.cancel_btn.config(state=tk.DISABLED)
-        self.update_status("Procesamiento cancelado", "red")
-    
-    def _on_processing_error(self, error_msg):
-        """Callback cuando hay un error en el procesamiento"""
-        self.processing = False
-        self.process_btn.config(state=tk.NORMAL)
-        self.cancel_btn.config(state=tk.DISABLED)
-        self.update_status("Error en procesamiento", "red")
-        messagebox.showerror("Error", f"Error durante el procesamiento:\n{error_msg}")
-    
-    def cancel_processing(self):
-        """Cancela el procesamiento"""
-        if self.analyzer:
-            self.analyzer.cancel_processing()
-            self.update_status("Cancelando...", "orange")
-    
-    def update_progress(self, percentage, current_frame, total_frames):
-        """Actualiza la barra de progreso"""
-        self.progress_var.set(percentage)
-        self.progress_label.config(
-            text=f"Frame {current_frame}/{total_frames} ({percentage}%)"
-        )
-    
-    def display_statistics(self):
-        """Muestra estadísticas en el área de texto"""
-        if not self.analyzer:
-            return
-        
-        stats = self.analyzer.get_statistics()
-        if not stats:
-            return
-        
-        self.stats_text.config(state=tk.NORMAL)
-        self.stats_text.delete(1.0, tk.END)
-        
-        text = "═══════════════════════════════\n"
-        text += "     ESTADÍSTICAS\n"
-        text += "═══════════════════════════════\n\n"
-        text += f"Gotas rastreadas: {stats['total_tracks']}\n"
-        text += f"Detecciones totales: {stats['total_detections']}\n\n"
-        
-        u = stats.get('unit', 'px')
-        
-        text += f"DIÁMETRO ({u}):\n"
-        text += f"  Media:    {stats['diameter_mean']:.2f}\n"
-        text += f"  Mediana:  {stats['diameter_median']:.2f}\n"
-        text += f"  Desv.Est: {stats['diameter_std']:.2f}\n"
-        text += f"  Min:      {stats['diameter_min']:.2f}\n"
-        text += f"  Max:      {stats['diameter_max']:.2f}\n\n"
-        
-        text += f"ÁREA ({u}²):\n"
-        text += f"  Media:    {stats['area_mean']:.2f}\n"
-        text += f"  Mediana:  {stats['area_median']:.2f}\n"
-        text += f"  Desv.Est: {stats['area_std']:.2f}\n\n"
-        
-        if 'velocity_mean' in stats:
-            text += f"VELOCIDAD ({u}/s):\n"
-            text += f"  Media:    {stats['velocity_mean']:.2f}\n"
-            text += f"  Mediana:  {stats['velocity_median']:.2f}\n"
-            text += f"  Desv.Est: {stats['velocity_std']:.2f}\n"
-            text += f"  Min:      {stats['velocity_min']:.2f}\n"
-            text += f"  Max:      {stats['velocity_max']:.2f}\n\n"
-        
-        text += "CIRCULARIDAD:\n"
-        text += f"  Media:    {stats['circularity_mean']:.3f}\n"
-        text += f"  Mediana:  {stats['circularity_median']:.3f}\n"
-        
-        self.stats_text.insert(1.0, text)
-        self.stats_text.config(state=tk.DISABLED)
-    
-    def export_csv(self):
-        """Exporta los resultados a CSV"""
-        if not self.analyzer:
-            return
-        
-        try:
+                return
+
+            # ── Paso 2: Exportar CSV principal ───────────────────
+            self._log_from_thread("► Paso 2/4: Exportando CSV de datos...")
             fname = self.csv_filename_var.get().strip() or 'droplet_data'
             df, csv_path = self.analyzer.export_results(filename=fname)
-            messagebox.showinfo("Éxito", f"CSV exportado a:\n{csv_path}")
-        except Exception as e:
-            messagebox.showerror("Error", f"Error al exportar CSV:\n{str(e)}")
-    
-    def generate_plots(self):
-        """Genera los gráficos"""
-        if not self.analyzer:
-            return
-        
-        try:
-            df = self.analyzer.export_to_dataframe()
+            self._log_from_thread(f"   ✓ CSV guardado: {csv_path}")
+
+            # ── Paso 3: Gráficos + CSVs individuales ─────────────
+            self._log_from_thread("► Paso 3/4: Generando gráficos y CSVs individuales...")
             self.plotter = DropletPlotter(self.output_dir)
-            fname = self.plots_filename_var.get().strip() or 'analysis_plots'
-            if not fname.endswith('.png'):
-                fname += '.png'
-            plot_path = self.plotter.generate_all_plots(df, filename=fname)
-            messagebox.showinfo("Éxito", f"Gráficos generados en:\n{plot_path}")
+            pfname = self.plots_filename_var.get().strip() or 'analysis_plots'
+            if not pfname.endswith('.png'):
+                pfname += '.png'
+            plot_path = self.plotter.generate_all_plots(df, filename=pfname)
+            self._log_from_thread(f"   ✓ Gráficos: {plot_path}")
+
+            base = self.csv_filename_var.get().strip() or 'droplet_data'
+            exported = self.plotter.export_individual_csvs(df, base_name=base)
+            for name, path in exported.items():
+                self._log_from_thread(f"   ✓ CSV {name}: {os.path.basename(path)}")
+
+            # ── Paso 4: Frames diagnóstico ────────────────────────
+            self._log_from_thread("► Paso 4/4: Guardando frames de diagnóstico...")
+            self._save_diag_frames_internal()
+
+            self.root.after(0, self._on_pipeline_complete)
+
         except Exception as e:
-            messagebox.showerror("Error", f"Error al generar gráficos:\n{str(e)}")
-    
-    def _toggle_pre_frame_entry(self):
-        """Activa/desactiva el campo de nombre del frame preprocesado"""
-        state = tk.NORMAL if self.save_pre_frame_var.get() else tk.DISABLED
-        self.pre_frame_entry.config(state=state)
-    
-    def _toggle_bin_frame_entry(self):
-        """Activa/desactiva el campo de nombre del frame binarizado"""
-        state = tk.NORMAL if self.save_bin_frame_var.get() else tk.DISABLED
-        self.bin_frame_entry.config(state=state)
-    
-    def save_diagnostic_frames(self):
-        """Guarda el primer frame preprocesado y/o binarizado para diagnóstico"""
-        if not self.video_path:
-            messagebox.showwarning("Advertencia", "Primero debes cargar un video")
-            return
-        
+            import traceback
+            self._log_from_thread(f"ERROR: {e}")
+            self._log_from_thread(traceback.format_exc())
+            self.root.after(0, lambda err=str(e): self._on_processing_error(err))
+
+    def _process_video_with_lines(self, vid_name, show_lines):
+        """Procesa el video respetando el toggle de líneas de tracking."""
+        import cv2
+        import numpy as np
+
+        self.analyzer.reset()
+        cap = cv2.VideoCapture(self.video_path)
+        fourcc = cv2.VideoWriter_fourcc(*'XVID')
+        out = cv2.VideoWriter(
+            os.path.join(self.output_dir, vid_name),
+            fourcc, self.analyzer.fps,
+            (self.analyzer.width, self.analyzer.height)
+        )
+
+        # Cada cuántos frames refrescamos la previsualización (para no saturar la UI)
+        PREVIEW_EVERY = max(1, int(self.analyzer.fps / 10))
+
+        frame_idx = 0
+        while True:
+            if self.analyzer.cancel_requested:
+                cap.release()
+                out.release()
+                return False
+
+            ret, frame = cap.read()
+            if not ret:
+                break
+
+            # ── Preprocesado y segmentación ───────────────────────
+            preprocessed = self.analyzer.preprocess_frame(frame)
+            binary, droplets = self.analyzer.segment_droplets(frame)
+            self.analyzer.track_droplets(droplets, frame_idx)
+
+            # ── Frame de tracking/detecciones ─────────────────────
+            vis = (cv2.cvtColor(frame, cv2.COLOR_GRAY2BGR)
+                   if len(frame.shape) == 2 else frame.copy())
+
+            for d in droplets:
+                cx, cy = d['centroid']
+                cv2.circle(vis, (int(cx), int(cy)),
+                           int(d['diameter'] / 2), (0, 255, 0), 1)
+                cv2.circle(vis, (int(cx), int(cy)), 2, (0, 0, 255), -1)
+
+            if show_lines:
+                for track in self.analyzer.droplet_tracks:
+                    if (len(track['positions']) > 1 and
+                            track['frames'][-1] >= frame_idx - 10):
+                        pts = np.array(track['positions'], dtype=np.int32)
+                        cv2.polylines(vis, [pts], False, (255, 0, 0), 1)
+
+            out.write(vis)
+
+            # ── Previsualización en tiempo real ───────────────────
+            if frame_idx % PREVIEW_EVERY == 0:
+                orig_bgr = (cv2.cvtColor(frame, cv2.COLOR_GRAY2BGR)
+                            if len(frame.shape) == 2 else frame.copy())
+                pre_bgr  = (cv2.cvtColor(preprocessed, cv2.COLOR_GRAY2BGR)
+                            if preprocessed.ndim == 2 else preprocessed.copy())
+                bin_bgr  = cv2.cvtColor(binary, cv2.COLOR_GRAY2BGR)
+                self._push_preview_frames(orig_bgr, pre_bgr, bin_bgr, vis)
+
+            if self.analyzer.progress_callback:
+                pct = int((frame_idx + 1) / self.analyzer.total_frames * 100)
+                self.analyzer.progress_callback(
+                    pct, frame_idx + 1, self.analyzer.total_frames)
+
+            frame_idx += 1
+
+        cap.release()
+        out.release()
+        self.analyzer.calculate_velocities()
+        return True
+
+    def _save_diag_frames_internal(self):
+        """Guarda frames de diagnóstico desde el hilo secundario."""
+        import cv2
         save_pre = self.save_pre_frame_var.get()
         save_bin = self.save_bin_frame_var.get()
-        
         if not save_pre and not save_bin:
-            messagebox.showwarning("Advertencia", 
-                                   "Marca al menos una opción (preprocesado o binarizado)")
             return
-        
         try:
-            from droplet_analyzer import DropletAnalyzer
-            diag_analyzer = DropletAnalyzer(self.video_path, self.output_dir)
-            params = self.get_parameters_from_gui()
-            for param_name, value in params.items():
-                diag_analyzer.set_parameter(param_name, value)
-            
-            import cv2
             cap = cv2.VideoCapture(self.video_path)
             ret, frame = cap.read()
             cap.release()
             if not ret:
-                raise RuntimeError("No se pudo leer el primer frame del video")
-            
+                self._log_from_thread(
+                    "   ⚠ No se pudo leer el primer frame para diagnóstico")
+                return
+            if save_pre:
+                name = (self.pre_frame_filename_var.get().strip()
+                        or 'frame_preprocesado') + '.png'
+                pre = self.analyzer.preprocess_frame(frame)
+                path = os.path.join(self.output_dir, name)
+                cv2.imwrite(path, pre)
+                self._log_from_thread(f"   ✓ Frame preprocesado: {path}")
+            if save_bin:
+                name = (self.bin_frame_filename_var.get().strip()
+                        or 'frame_binarizado') + '.png'
+                binary, _ = self.analyzer.segment_droplets(frame)
+                path = os.path.join(self.output_dir, name)
+                cv2.imwrite(path, binary)
+                self._log_from_thread(f"   ✓ Frame binarizado: {path}")
+        except Exception as e:
+            self._log_from_thread(f"   ⚠ Error frames diagnóstico: {e}")
+
+    # ─────────────────────────────────────────────────────────────
+    #  CALLBACKS DE ESTADO
+    # ─────────────────────────────────────────────────────────────
+    def _on_pipeline_complete(self):
+        self.processing = False
+        self.run_btn.config(state=tk.NORMAL)
+        self.cancel_btn.config(state=tk.DISABLED)
+        self.display_statistics()
+        self.update_status("Análisis completado", "green")
+        self.log("=" * 42)
+        self.log("  ANÁLISIS COMPLETADO EXITOSAMENTE")
+        self.log(f"  Resultados en: {os.path.abspath(self.output_dir)}")
+        self.log("=" * 42)
+
+    def _on_processing_cancelled(self):
+        self.processing = False
+        self.run_btn.config(state=tk.NORMAL)
+        self.cancel_btn.config(state=tk.DISABLED)
+        self.update_status("Procesamiento cancelado", "red")
+        self.log("Procesamiento cancelado por el usuario")
+
+    def _on_processing_error(self, error_msg):
+        self.processing = False
+        self.run_btn.config(state=tk.NORMAL)
+        self.cancel_btn.config(state=tk.DISABLED)
+        self.update_status("Error en procesamiento", "red")
+        messagebox.showerror("Error", f"Error durante el procesamiento:\n{error_msg}")
+
+    def cancel_processing(self):
+        if self.analyzer:
+            self.analyzer.cancel_processing()
+            self.update_status("Cancelando...", "orange")
+            self.log("Cancelación solicitada...")
+
+    def update_progress(self, percentage, current_frame, total_frames):
+        self.progress_var.set(percentage)
+        self.progress_label.config(
+            text=f"Frame {current_frame}/{total_frames} ({percentage}%)")
+        if percentage % 10 == 0:
+            self._log_from_thread(
+                f"   Progreso video: {percentage}%  ({current_frame}/{total_frames})")
+
+
+    # ─────────────────────────────────────────────────────────────
+    #  PREVISUALIZACIÓN EN TIEMPO REAL
+    # ─────────────────────────────────────────────────────────────
+    def _open_preview_window(self):
+        """Abre (o reactiva) la ventana flotante de previsualización 4 paneles."""
+        if self._preview_win and tk.Toplevel.winfo_exists(self._preview_win):
+            self._preview_win.lift()
+            return
+
+        win = tk.Toplevel(self.root)
+        win.title("Previsualización en tiempo real")
+        win.resizable(True, True)
+        self._preview_win = win
+
+        PANEL_LABELS = ["Original", "Preprocesado", "Binarizado", "Tracking + Detecciones"]
+        self._preview_labels = []
+        self._preview_photo  = [None] * 4   # referencia para evitar GC
+
+        for col, text in enumerate(PANEL_LABELS):
+            ttk.Label(win, text=text, font=("Arial", 9, "bold")).grid(
+                row=0, column=col, padx=4, pady=(6, 2))
+            lbl = tk.Label(win, bg="black")
+            lbl.grid(row=1, column=col, padx=4, pady=(0, 6))
+            self._preview_labels.append(lbl)
+
+        self.root.after(30, self._poll_preview_queue)
+
+    def _poll_preview_queue(self):
+        """Consume frames de la cola y los muestra en la ventana de preview."""
+        if not (self._preview_win and
+                tk.Toplevel.winfo_exists(self._preview_win)):
+            while not self._preview_queue.empty():
+                try:
+                    self._preview_queue.get_nowait()
+                except queue.Empty:
+                    break
+            return
+
+        try:
+            frames = self._preview_queue.get_nowait()
+            self._render_preview_frames(frames)
+        except queue.Empty:
+            pass
+
+        if self.processing:
+            self.root.after(30, self._poll_preview_queue)
+
+    def _render_preview_frames(self, frames):
+        """Convierte los 4 frames numpy a PhotoImage y los muestra."""
+        try:
+            from PIL import Image, ImageTk
+        except ImportError:
+            return
+        import numpy as np
+
+        THUMB_W, THUMB_H = 320, 240
+
+        for idx, (frame, lbl) in enumerate(zip(frames, self._preview_labels)):
+            if frame is None:
+                continue
+            img = frame.astype("uint8")
+            if img.ndim == 2:
+                img = np.stack([img] * 3, axis=-1)
+            else:
+                img = img[:, :, ::-1]   # BGR → RGB
+
+            h, w = img.shape[:2]
+            scale = min(THUMB_W / w, THUMB_H / h)
+            nw, nh = max(1, int(w * scale)), max(1, int(h * scale))
+            pil_img = Image.fromarray(img).resize((nw, nh), Image.NEAREST)
+            photo = ImageTk.PhotoImage(pil_img)
+            self._preview_photo[idx] = photo
+            lbl.config(image=photo, width=nw, height=nh)
+
+    def _push_preview_frames(self, orig, preprocessed, binary, tracking):
+        """Empuja los 4 frames a la cola desde el hilo de procesamiento."""
+        try:
+            self._preview_queue.put_nowait([orig, preprocessed, binary, tracking])
+        except queue.Full:
+            pass
+
+    # ─────────────────────────────────────────────────────────────
+    #  LOG
+    # ─────────────────────────────────────────────────────────────
+    def log(self, msg: str):
+        """Añade una línea al log (desde el hilo principal)."""
+        self.log_text.config(state=tk.NORMAL)
+        ts = time.strftime("%H:%M:%S")
+        self.log_text.insert(tk.END, f"[{ts}] {msg}\n")
+        self.log_text.see(tk.END)
+        self.log_text.config(state=tk.DISABLED)
+
+    def _log_from_thread(self, msg: str):
+        """Encola un mensaje de log desde cualquier hilo."""
+        self._log_queue.put(msg)
+
+    def _poll_log_queue(self):
+        """Consume la cola de log en el hilo principal (100 ms)."""
+        try:
+            while True:
+                msg = self._log_queue.get_nowait()
+                self.log(msg)
+        except queue.Empty:
+            pass
+        self.root.after(100, self._poll_log_queue)
+
+    # ─────────────────────────────────────────────────────────────
+    #  ESTADÍSTICAS
+    # ─────────────────────────────────────────────────────────────
+    def display_statistics(self):
+        if not self.analyzer:
+            return
+        stats = self.analyzer.get_statistics()
+        if not stats:
+            return
+
+        self.stats_text.config(state=tk.NORMAL)
+        self.stats_text.delete(1.0, tk.END)
+
+        u = stats.get('unit', 'px')
+        t = "═══════════════════════════════\n"
+        t += "       ESTADÍSTICAS\n"
+        t += "═══════════════════════════════\n\n"
+        t += f"Gotas rastreadas:    {stats['total_tracks']}\n"
+        t += f"Detecciones totales: {stats['total_detections']}\n\n"
+        t += f"DIÁMETRO ({u}):\n"
+        t += f"  Media:    {stats['diameter_mean']:.2f}\n"
+        t += f"  Mediana:  {stats['diameter_median']:.2f}\n"
+        t += f"  Desv.Est: {stats['diameter_std']:.2f}\n"
+        t += f"  Min:      {stats['diameter_min']:.2f}\n"
+        t += f"  Max:      {stats['diameter_max']:.2f}\n\n"
+        t += f"ÁREA ({u}²):\n"
+        t += f"  Media:    {stats['area_mean']:.2f}\n"
+        t += f"  Mediana:  {stats['area_median']:.2f}\n"
+        t += f"  Desv.Est: {stats['area_std']:.2f}\n\n"
+        if 'velocity_mean' in stats:
+            t += f"VELOCIDAD ({u}/s):\n"
+            t += f"  Media:    {stats['velocity_mean']:.2f}\n"
+            t += f"  Mediana:  {stats['velocity_median']:.2f}\n"
+            t += f"  Desv.Est: {stats['velocity_std']:.2f}\n"
+            t += f"  Min:      {stats['velocity_min']:.2f}\n"
+            t += f"  Max:      {stats['velocity_max']:.2f}\n\n"
+        t += "CIRCULARIDAD:\n"
+        t += f"  Media:    {stats['circularity_mean']:.3f}\n"
+        t += f"  Mediana:  {stats['circularity_median']:.3f}\n\n"
+        if stats.get('roundness_mean') is not None:
+            t += "REDONDEZ:\n"
+            t += f"  Media:    {stats['roundness_mean']:.3f}\n"
+            t += f"  Mediana:  {stats['roundness_median']:.3f}\n"
+
+        self.stats_text.insert(1.0, t)
+        self.stats_text.config(state=tk.DISABLED)
+
+    # ─────────────────────────────────────────────────────────────
+    #  FRAMES DIAGNÓSTICO (botón manual)
+    # ─────────────────────────────────────────────────────────────
+    def save_diagnostic_frames(self):
+        if not self.video_path:
+            messagebox.showwarning("Advertencia", "Primero debes cargar un video")
+            return
+        save_pre = self.save_pre_frame_var.get()
+        save_bin = self.save_bin_frame_var.get()
+        if not save_pre and not save_bin:
+            messagebox.showwarning("Advertencia", "Marca al menos una opción")
+            return
+        try:
+            import cv2
+            diag = DropletAnalyzer(self.video_path, self.output_dir)
+            for pname, val in self.get_parameters_from_gui().items():
+                diag.set_parameter(pname, val)
+            cap = cv2.VideoCapture(self.video_path)
+            ret, frame = cap.read()
+            cap.release()
+            if not ret:
+                raise RuntimeError("No se pudo leer el primer frame")
             saved = []
             if save_pre:
-                pre_name = (self.pre_frame_filename_var.get().strip() or 'frame_preprocesado') + '.png'
-                preprocessed = diag_analyzer.preprocess_frame(frame)
-                pre_path = os.path.join(self.output_dir, pre_name)
-                cv2.imwrite(pre_path, preprocessed)
-                saved.append(f"  Preprocesado: {pre_path}")
-            
+                name = (self.pre_frame_filename_var.get().strip()
+                        or 'frame_preprocesado') + '.png'
+                pre = diag.preprocess_frame(frame)
+                path = os.path.join(self.output_dir, name)
+                cv2.imwrite(path, pre)
+                saved.append(f"  Preprocesado: {path}")
+                self.log(f"Frame preprocesado: {path}")
             if save_bin:
-                bin_name = (self.bin_frame_filename_var.get().strip() or 'frame_binarizado') + '.png'
-                binary, _ = diag_analyzer.segment_droplets(frame)
-                bin_path = os.path.join(self.output_dir, bin_name)
-                cv2.imwrite(bin_path, binary)
-                saved.append(f"  Binarizado:   {bin_path}")
-            
+                name = (self.bin_frame_filename_var.get().strip()
+                        or 'frame_binarizado') + '.png'
+                binary, _ = diag.segment_droplets(frame)
+                path = os.path.join(self.output_dir, name)
+                cv2.imwrite(path, binary)
+                saved.append(f"  Binarizado: {path}")
+                self.log(f"Frame binarizado: {path}")
             messagebox.showinfo("Éxito", "Frames guardados:\n" + "\n".join(saved))
         except Exception as e:
-            messagebox.showerror("Error", f"Error al guardar frames:\n{str(e)}") 
-    
+            messagebox.showerror("Error", f"Error al guardar frames:\n{str(e)}")
+
+    # ─────────────────────────────────────────────────────────────
+    #  UTILIDADES
+    # ─────────────────────────────────────────────────────────────
+    def update_status(self, message, color="black"):
+        self.status_label.config(text=message, foreground=color)
+
+    def _toggle_pre_frame_entry(self):
+        state = tk.NORMAL if self.save_pre_frame_var.get() else tk.DISABLED
+        self.pre_frame_entry.config(state=state)
+
+    def _toggle_bin_frame_entry(self):
+        state = tk.NORMAL if self.save_bin_frame_var.get() else tk.DISABLED
+        self.bin_frame_entry.config(state=state)
+
     def open_output_folder(self):
-        """Abre la carpeta de salida, creándola si no existe"""
         import platform
         import subprocess
-        
         os.makedirs(self.output_dir, exist_ok=True)
-        
         if platform.system() == 'Windows':
             os.startfile(self.output_dir)
-        elif platform.system() == 'Darwin':  # macOS
+        elif platform.system() == 'Darwin':
             subprocess.Popen(['open', self.output_dir])
-        else:  # Linux
+        else:
             subprocess.Popen(['xdg-open', self.output_dir])
 
 
 def main():
-    """Función principal"""
     root = tk.Tk()
     app = DropletAnalyzerGUI(root)
     root.mainloop()

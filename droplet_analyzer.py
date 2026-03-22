@@ -31,6 +31,7 @@ class DropletAnalyzer:
             'min_droplet_area': 10,
             'max_droplet_area': 5000,
             'min_droplet_circularity': 0.6,
+            'min_droplet_roundness': 0.0,
             'threshold_value': 100,
             'max_tracking_distance': 50,
             'clahe_clip_limit': 2.0,
@@ -244,6 +245,9 @@ class DropletAnalyzer:
                             roundness = (4 * area) / (np.pi * (MA**2))
                             roundness = min(1.0, roundness)
 
+                    if roundness < self.params.get("min_droplet_roundness", 0.0):
+                        continue
+
                     diameter = 2 * np.sqrt(area / np.pi)
                     
                     bbox = cv2.boundingRect(cnt)
@@ -278,7 +282,8 @@ class DropletAnalyzer:
                     'frames': [frame_idx],
                     'areas': [droplet['area']],
                     'diameters': [droplet['diameter']],
-                    'circularities': [droplet['circularity']]
+                    'circularities': [droplet['circularity']],
+                    'roundnesses': [droplet['roundness']]
                 }
                 self.droplet_tracks.append(track)
                 self.next_id += 1
@@ -314,6 +319,7 @@ class DropletAnalyzer:
                     track['areas'].append(droplet['area'])
                     track['diameters'].append(droplet['diameter'])
                     track['circularities'].append(droplet['circularity'])
+                    track.setdefault('roundnesses', []).append(droplet['roundness'])
                     used_tracks.add(best_track_idx)
                     used_droplets.add(i)
             
@@ -325,7 +331,8 @@ class DropletAnalyzer:
                         'frames': [frame_idx],
                         'areas': [droplet['area']],
                         'diameters': [droplet['diameter']],
-                        'circularities': [droplet['circularity']]
+                        'circularities': [droplet['circularity']],
+                        'roundnesses': [droplet['roundness']]
                     }
                     self.droplet_tracks.append(track)
                     self.next_id += 1
@@ -441,7 +448,8 @@ class DropletAnalyzer:
                     f'y_{u}': self.px_to_real(track['positions'][i][1]),
                     f'area_{u}2': self.px2_to_real2(track['areas'][i]),
                     f'diameter_{u}': self.px_to_real(track['diameters'][i]),
-                    'circularity': track['circularities'][i]
+                    'circularity': track['circularities'][i],
+                    'roundness': track.get('roundnesses', [0]*len(track['frames']))[i]
                 }
                 
                 if i < len(track.get('velocity_x', [])):
@@ -491,6 +499,8 @@ class DropletAnalyzer:
             'area_std': df[area_col].std(),
             'circularity_mean': df['circularity'].mean(),
             'circularity_median': df['circularity'].median(),
+            'roundness_mean': df['roundness'].mean() if 'roundness' in df.columns else None,
+            'roundness_median': df['roundness'].median() if 'roundness' in df.columns else None,
             'unit': u,
         }
         
