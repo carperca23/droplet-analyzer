@@ -46,32 +46,23 @@ class DropletPlotter:
         """
         Genera todos los gráficos de análisis
         """
-        fig, axes = plt.subplots(2, 4, figsize=(20, 10))
+        fig, axes = plt.subplots(3, 3, figsize=(21, 15))
         fig.suptitle('Análisis de Gotas', fontsize=16, fontweight='bold')
         
-        # 1. Distribución de diámetros
+        # Fila 0: distribuciones básicas
         self._plot_diameter_distribution(df, axes[0, 0])
-        
-        # 2. Distribución de áreas
         self._plot_area_distribution(df, axes[0, 1])
-        
-        # 3. Distribución de velocidades
         self._plot_velocity_distribution(df, axes[0, 2])
-        
-        # 4. Circularidad
-        self._plot_circularity_distribution(df, axes[0, 3])
-        
-        # 5. Trayectorias de gotas
-        self._plot_trajectories(df, axes[1, 0])
-        
-        # 6. Diámetro vs Velocidad
-        self._plot_diameter_vs_velocity(df, axes[1, 1])
-        
-        # 7. Redondez
-        self._plot_roundness_distribution(df, axes[1, 2])
 
-        # 8. Diámetro vs Redondez
-        self._plot_diameter_vs_roundness(df, axes[1, 3])
+        # Fila 1: forma y trayectorias
+        self._plot_circularity_distribution(df, axes[1, 0])
+        self._plot_roundness_distribution(df, axes[1, 1])
+        self._plot_trajectories(df, axes[1, 2])
+
+        # Fila 2: relaciones entre métricas
+        self._plot_diameter_vs_velocity(df, axes[2, 0])
+        self._plot_diameter_vs_roundness(df, axes[2, 1])
+        self._plot_circularity_vs_roundness(df, axes[2, 2])
         
         plt.tight_layout()
         plot_path = os.path.join(self.output_dir, filename)
@@ -209,6 +200,34 @@ class DropletPlotter:
         ax.set_title('Diámetro vs Redondez', fontsize=11, fontweight='bold')
         ax.grid(True, alpha=0.3, linestyle='--')
 
+    def _plot_circularity_vs_roundness(self, df, ax):
+        """Gráfico de dispersión Circularidad vs Redondez"""
+        if 'roundness' not in df.columns:
+            ax.text(0.5, 0.5, 'No hay datos de redondez',
+                    ha='center', va='center', transform=ax.transAxes)
+            return
+
+        valid = df[['circularity', 'roundness']].dropna()
+        sc = ax.scatter(
+            valid['circularity'], valid['roundness'],
+            alpha=0.35, s=10, c=valid['circularity'],
+            cmap='plasma', vmin=0, vmax=1
+        )
+        plt.colorbar(sc, ax=ax, label='Circularidad')
+
+        # Línea de identidad (circularidad == redondez)
+        lims = [0, 1]
+        ax.plot(lims, lims, 'k--', linewidth=1, alpha=0.5, label='y = x')
+
+        ax.set_xlabel('Circularidad', fontsize=10)
+        ax.set_ylabel('Redondez', fontsize=10)
+        ax.set_title('Circularidad vs Redondez', fontsize=11, fontweight='bold')
+        ax.set_xlim(0, 1)
+        ax.set_ylim(0, 1)
+        ax.set_aspect('equal', adjustable='box')
+        ax.grid(True, alpha=0.3, linestyle='--')
+        ax.legend(fontsize=8)
+
     def export_individual_csvs(self, df, base_name='plot_data'):
         """
         Exporta CSVs individuales para cada gráfico/métrica.
@@ -266,6 +285,11 @@ class DropletPlotter:
                 columns={diam_col: f'diametro_{unit}', 'roundness': 'redondez'}),
                 'diametro_vs_redondez')
 
+            # Circularidad vs Redondez
+            _save(df[['circularity', 'roundness']].dropna().rename(
+                columns={'circularity': 'circularidad', 'roundness': 'redondez'}),
+                'circularidad_vs_redondez')
+
         return exported
     
     def plot_single_metric(self, df, metric, filename=None):
@@ -290,6 +314,8 @@ class DropletPlotter:
             self._plot_roundness_distribution(df, ax)
         elif metric == 'diameter_vs_roundness':
             self._plot_diameter_vs_roundness(df, ax)
+        elif metric == 'circularity_vs_roundness':
+            self._plot_circularity_vs_roundness(df, ax)
         
         plt.tight_layout()
         
