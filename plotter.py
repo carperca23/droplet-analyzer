@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import matplotlib
 matplotlib.use('Agg')
 import numpy as np
+import pandas as pd
 import os
 
 
@@ -45,26 +46,23 @@ class DropletPlotter:
         """
         Genera todos los gráficos de análisis
         """
-        fig, axes = plt.subplots(2, 3, figsize=(15, 10))
+        fig, axes = plt.subplots(3, 3, figsize=(21, 15))
         fig.suptitle('Análisis de Gotas', fontsize=16, fontweight='bold')
         
-        # 1. Distribución de diámetros
+        # Fila 0: distribuciones básicas
         self._plot_diameter_distribution(df, axes[0, 0])
-        
-        # 2. Distribución de áreas
         self._plot_area_distribution(df, axes[0, 1])
-        
-        # 3. Distribución de velocidades
         self._plot_velocity_distribution(df, axes[0, 2])
-        
-        # 4. Trayectorias de gotas
-        self._plot_trajectories(df, axes[1, 0])
-        
-        # 5. Diámetro vs Velocidad
-        self._plot_diameter_vs_velocity(df, axes[1, 1])
-        
-        # 6. Circularidad
-        self._plot_circularity_distribution(df, axes[1, 2])
+
+        # Fila 1: forma y trayectorias
+        self._plot_circularity_distribution(df, axes[1, 0])
+        self._plot_roundness_distribution(df, axes[1, 1])
+        self._plot_trajectories(df, axes[1, 2])
+
+        # Fila 2: relaciones entre métricas
+        self._plot_diameter_vs_velocity(df, axes[2, 0])
+        self._plot_diameter_vs_roundness(df, axes[2, 1])
+        self._plot_circularity_vs_roundness(df, axes[2, 2])
         
         plt.tight_layout()
         plot_path = os.path.join(self.output_dir, filename)
@@ -173,6 +171,126 @@ class DropletPlotter:
         ax.axvline(mean_val, color='darkviolet', linestyle='--', linewidth=2, 
                   label=f'Media: {mean_val:.3f}')
         ax.legend(fontsize=8)
+
+    def _plot_roundness_distribution(self, df, ax):
+        """Gráfico de distribución de redondez"""
+        if 'roundness' not in df.columns:
+            ax.text(0.5, 0.5, 'No hay datos de redondez', ha='center', va='center', transform=ax.transAxes)
+            return
+        ax.hist(df['roundness'].dropna(), bins=30, edgecolor='black', color='#e67e22')
+        ax.set_xlabel('Redondez', fontsize=10)
+        ax.set_ylabel('Frecuencia', fontsize=10)
+        ax.set_title('Distribución de Redondez', fontsize=11, fontweight='bold')
+        ax.grid(True, alpha=0.3, linestyle='--')
+        mean_val = df['roundness'].mean()
+        ax.axvline(mean_val, color='darkorange', linestyle='--', linewidth=2,
+                  label=f'Media: {mean_val:.3f}')
+        ax.legend(fontsize=8)
+
+    def _plot_diameter_vs_roundness(self, df, ax):
+        """Gráfico de diámetro vs redondez"""
+        cols = self._get_col_names(df)
+        diam_col, unit = cols['diameter'], cols['unit']
+        if 'roundness' not in df.columns:
+            ax.text(0.5, 0.5, 'No hay datos de redondez', ha='center', va='center', transform=ax.transAxes)
+            return
+        ax.scatter(df[diam_col], df['roundness'], alpha=0.3, s=10, color='#e67e22')
+        ax.set_xlabel(f'Diámetro ({unit})', fontsize=10)
+        ax.set_ylabel('Redondez', fontsize=10)
+        ax.set_title('Diámetro vs Redondez', fontsize=11, fontweight='bold')
+        ax.grid(True, alpha=0.3, linestyle='--')
+
+    def _plot_circularity_vs_roundness(self, df, ax):
+        """Gráfico de dispersión Circularidad vs Redondez"""
+        if 'roundness' not in df.columns:
+            ax.text(0.5, 0.5, 'No hay datos de redondez',
+                    ha='center', va='center', transform=ax.transAxes)
+            return
+
+        valid = df[['circularity', 'roundness']].dropna()
+        sc = ax.scatter(
+            valid['circularity'], valid['roundness'],
+            alpha=0.35, s=10, c=valid['circularity'],
+            cmap='plasma', vmin=0, vmax=1
+        )
+        plt.colorbar(sc, ax=ax, label='Circularidad')
+
+        # Línea de identidad (circularidad == redondez)
+        lims = [0, 1]
+        ax.plot(lims, lims, 'k--', linewidth=1, alpha=0.5, label='y = x')
+
+        ax.set_xlabel('Circularidad', fontsize=10)
+        ax.set_ylabel('Redondez', fontsize=10)
+        ax.set_title('Circularidad vs Redondez', fontsize=11, fontweight='bold')
+        ax.set_xlim(0, 1)
+        ax.set_ylim(0, 1)
+        ax.set_aspect('equal', adjustable='box')
+        ax.grid(True, alpha=0.3, linestyle='--')
+        ax.legend(fontsize=8)
+
+    def export_individual_csvs(self, df, base_name='plot_data'):
+        """
+        Exporta CSVs individuales para cada gráfico/métrica.
+        Retorna dict con {nombre: ruta_csv}
+        """
+        cols = self._get_col_names(df)
+        diam_col = cols['diameter']
+        area_col = cols['area']
+        vel_col  = cols['velocity']
+        unit     = cols['unit']
+        exported = {}
+
+        def _save(sub_df, name):
+            path = os.path.join(self.output_dir, f'{base_name}_{name}.csv')
+            sub_df.to_csv(path, index=False)
+            exported[name] = path
+
+        # Frecuencia vs Diámetro (histograma)
+        counts, edges = np.histogram(df[diam_col].dropna(), bins=30)
+        _save(pd.DataFrame({f'diametro_{unit}_centro_bin': (edges[:-1]+edges[1:])/2,
+                             'frecuencia': counts}), 'frec_diametro')
+
+        # Frecuencia vs Área
+        counts, edges = np.histogram(df[area_col].dropna(), bins=30)
+        _save(pd.DataFrame({f'area_{unit}2_centro_bin': (edges[:-1]+edges[1:])/2,
+                             'frecuencia': counts}), 'frec_area')
+
+        # Frecuencia vs Velocidad
+        if vel_col and vel_col in df.columns:
+            v = df[vel_col].dropna()
+            if len(v) > 0:
+                counts, edges = np.histogram(v, bins=30)
+                _save(pd.DataFrame({f'velocidad_{unit}_s_centro_bin': (edges[:-1]+edges[1:])/2,
+                                     'frecuencia': counts}), 'frec_velocidad')
+
+        # Velocidad vs Diámetro (scatter)
+        if vel_col and vel_col in df.columns:
+            _save(df[[diam_col, vel_col]].dropna().rename(
+                columns={diam_col: f'diametro_{unit}', vel_col: f'velocidad_{unit}_s'}),
+                'vel_vs_diametro')
+
+        # Frecuencia vs Circularidad
+        counts, edges = np.histogram(df['circularity'].dropna(), bins=30)
+        _save(pd.DataFrame({'circularidad_centro_bin': (edges[:-1]+edges[1:])/2,
+                             'frecuencia': counts}), 'frec_circularidad')
+
+        # Frecuencia vs Redondez
+        if 'roundness' in df.columns:
+            counts, edges = np.histogram(df['roundness'].dropna(), bins=30)
+            _save(pd.DataFrame({'redondez_centro_bin': (edges[:-1]+edges[1:])/2,
+                                 'frecuencia': counts}), 'frec_redondez')
+
+            # Diámetro vs Redondez
+            _save(df[[diam_col, 'roundness']].dropna().rename(
+                columns={diam_col: f'diametro_{unit}', 'roundness': 'redondez'}),
+                'diametro_vs_redondez')
+
+            # Circularidad vs Redondez
+            _save(df[['circularity', 'roundness']].dropna().rename(
+                columns={'circularity': 'circularidad', 'roundness': 'redondez'}),
+                'circularidad_vs_redondez')
+
+        return exported
     
     def plot_single_metric(self, df, metric, filename=None):
         """
@@ -192,6 +310,12 @@ class DropletPlotter:
             self._plot_diameter_vs_velocity(df, ax)
         elif metric == 'circularity':
             self._plot_circularity_distribution(df, ax)
+        elif metric == 'roundness':
+            self._plot_roundness_distribution(df, ax)
+        elif metric == 'diameter_vs_roundness':
+            self._plot_diameter_vs_roundness(df, ax)
+        elif metric == 'circularity_vs_roundness':
+            self._plot_circularity_vs_roundness(df, ax)
         
         plt.tight_layout()
         
