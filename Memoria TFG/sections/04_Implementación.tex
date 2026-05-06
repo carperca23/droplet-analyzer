@@ -1,3 +1,5 @@
+% LTeX: language=es
+
 \chapter{Implementación}\label{cap:implementacion}
 
 En este apartado se describirá la solución final implementada, detallando tanto el pipeline de procesamiento de imágenes, como la interfaz gráfica desarrollada junto con una breve guía de uso. Para ello, se dividirá el capítulo en dos secciones: una dedicada al backend y otra al frontend.
@@ -29,7 +31,7 @@ También se han tenido que definir tres tipos de datos (diccionarios) para poder
 
 El preprocesamiento de los frames del vídeo es la primera etapa del pipeline implementado. En esta etapa se aplican diversas técnicas para mejorar la calidad del contraste y la reducción de ruido en las imágenes, facilitando así la posterior segmentación de las gotas.
 
-Como se pude apreciar en el diagrama de la figura \ref{fig:diagramaPipeline}, el preprocesamiento se compone de tres etapas principales: la conversión a escala de grises, la mejora del contraste y la reducción de ruido. Veamos cada uno de estos bloques con más detalle.
+Como se puede apreciar en el diagrama de la figura \ref{fig:diagramaPipeline}, el preprocesamiento se compone de tres etapas principales: la conversión a escala de grises, la mejora del contraste y la reducción de ruido. Veamos cada uno de estos bloques con más detalle.
 
 \subsubsection{Conversión a escala de grises}
 
@@ -349,5 +351,52 @@ La \negritas{bounding box} es el rectángulo mínimo que encierra completamente 
 Finalmente, la máscara de cada gota se obtiene rellenando el contorno de la gota en una imagen binaria del mismo tamaño que el frame original, utilizando la función \texttt{cv2.drawContours}  con el parámetro de grosor establecido en $-1$ para rellenar el contorno.
 
 Todo esto se almacena en una lista de diccionarios, donde cada diccionario corresponde a una gota y contiene las características mencionadas anteriormente. 
-\FloatBarrier
+
+\subsection{Tracking}
+El tracking implementado combina dos estrategias: predicción de la posición mediante flujo óptico de Lucas-Kanade \cite{lucas1981iterative} y asignación por distancia mínima. El tracking se implementa en la función \texttt{track\_droplets}, que recibe las gotas detectadas en el frame actual, el índice del frame y el frame en escala de grises.
+
+Cada trayectoria se almacena como diccionario con los campos ya descritos en el diagrama de clase \ref{fig:diagramaClaseAn} (posicion, frame, area, id, etc). Al finalizar el procesamiento se añaden los campos de velocidad (vx, vy y magnitud).
+
+\subsubsection{Fase 1: Predicción con Lucas-Kanade}
+
+Antes de intentar asignar cada gota detectada a un track existente, el algoritmo predice dónde debería estar cada track activo en el frame actual utilizando el flujo óptico. En el código dicho algoritmo está implementado mediante la función \texttt{cv2.calcOpticalFlowPyrLK}.
+
+Se consideran track activo aquel cuyo último frame registrado es exactamente el frame anterior al actual. Para cada uno de ellos, se toma su última posición conocida y se le pasa al estimador de flujo óptico junto con el frame anterior y el actual. El algoritmo devuelve la posición predicha y un indicador de éxito, que si vale 1, se considera válida y se guarda.
+
+Los parámetros de esta función son:
+\begin{itemize}
+    \item \texttt{lk\_win\_size}: Tamaño de la ventana de búsqueda en píxeles (configurable desde la interfaz).
+    \item \texttt{lk\_max\_level}: Número máximo de niveles de la pirámide de imágenes, configurado con 2 niveles.
+    \item \texttt{lk\_criteria}: Criterios de terminación del algoritmo, se ha configurado un máximo de 10 iteraciones o un umbral de convergencia de 0.03.
+\end{itemize}
+
+\subsubsection{Fase 2: Asignación por distancia mínima (greedy)}
+
+Una vez obtenidas las predicciones de posición para cada track activo, el siguiente paso es la asignación de las gotas detectadas a los tracks. En el primer frame cada gota detectada genera automáticamente un nuevo track, pero a partir del segundo frame, se aplica el siguiente procedimiento:
+
+Para cada gota detectada en el frame actual, se recorren todos los tracks no usados aún cuyo último frame registrado sea como mucho 5 frames anterior al actual, es decir, existe una tolerancia de hasta 5 frames antes de descartar un track. Se calcula la distancia euclídea entre el centroide de la gota y la posición de referencia del track, que es la posición predicha por Lucas-Kanade si está disponible, o la última posición conocida en caso contrario.
+
+\begin{equation}
+    d = \sqrt{(c_{x} - ref_{x})^2 + (c_{y} - ref_{y})^2}
+\end{equation}
+
+Si la distancia $d$ es menor que la mejor distancia encontrada y menor que el umbral de distancia máxima configurado desde la interfaz gráfica, se asigna la gota al track correspondiente a esa mejor distancia. Si no se encuentra ningún otro track dentro del umbral de distancia que mejore al asignado, se crea un nuevo track para esa gota.
+
+\subsubsection{Cálculo de velocidades}
+
+Una vez procesado el vídeo completo, se invoca el método \texttt{calculate\_velocities}, que recorre todos los tracks con al menos dos posiciones y calcula las velocidades componente a componente mediante diferencias finitas entre posiciones consecutivas.
+
+\begin{equation}
+    v_x = \frac{c_{x_{i}} - c_{x_{i-1}}}{\Delta t}, \qquad v_y = \frac{c_{y_{i}} - c_{y_{i-1}}}{\Delta t}, \qquad
+    |v| = \sqrt{v_x^2 + v_y^2}
+\end{equation}
+donde 
+\begin{equation}
+    \Delta t = \frac{\Delta {frames}}{\text{fps\_efectivos}}
+\end{equation}
+
+Las velocidades quedan almacenadas en el track y, al exportar, se convierten a unidades reales usando el factor de escala píxel-milímetro (seleccionado en la interfaz).
+
+Este enfoque híbrido hace que el tracker sea más robusto ante movimiento rápido (donde la última posición podría estar lejos de la real en el siguiente frame) sin necesidad de recurrir a métodos más complejos como filtros de Kalman, lo cual sería excesivo dado que los vídeos son cortos (120 frames) y el movimiento de las gotas es relativamente uniforme.
+
 \section{Frontend}
