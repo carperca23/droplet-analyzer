@@ -61,12 +61,134 @@ En esta sección se procederá a dar unas breves pinceladas sobre la representac
 En este proyecto se trabaja con vídeos de alta velocidad, que no son más que secuencias de imágenes digitales relacionadas temporalmente. Por lo tanto, es fundamental entender cómo se representan las imágenes digitales para poder aplicar técnicas de procesamiento de imágenes y análisis de vídeo.
 
 \subsection{¿Qué es una imagen digital?}
-Una
 
+Las imágenes se pueden dividir principalmente en dos tipos: imágenes analógicas e imágenes digitales. Las imágenes analógicas son una representación física de la luz, en la fotografía tradicional, por ejemplo, la luz reacciona con sustancias químicas para formar una imagen. Esta variación química es continua, lo que significa que las transiciones de color o luz fluyen sin interrupciones, formando un gradiente suave sin divisiones exactas. Por otro lado, las imágenes digitales son una representación discreta de la luz, dónde la imagen se divide en una cuadrícula de pequeños elementos numéricos llamados píxeles. Cada píxel tiene un valor que representa la intensidad de la luz (en imágenes en escala de grises) o los valores de color (en imágenes a color). Esta representación discreta permite almacenar, procesar y analizar las imágenes utilizando algoritmos computacionales, como es el caso.
+
+\subsection{Representación de las imágenes digitales}
+
+Para representar una imagen digital, se utiliza una matriz de píxeles. Definamos $p = f(x, y)$, donde $x$ y $y$ son las coordenadas espaciales y $f$ es la función de iluminación que asigna un valor de intensidad (o color) a cada píxel. En el caso de imágenes en escala de grises, cada píxel tiene un valor que representa la intensidad de la luz, típicamente en un rango de 0 a 255, donde 0 representa el negro y 255 representa el blanco. En el caso de imágenes a color, cada píxel se representa mediante tres valores (R, G, B), cada uno en un canal (matriz) diferente que corresponden a las intensidades de los colores rojo, verde y azul, respectivamente.
+
+Así que para una imagen digital de tamaño $n x n$, la representación en formato matricial $A$ sería la siguiente:
+
+\begin{equation} \label{eq:matriz}
+\mathbf{A} = 
+\begin{bmatrix}
+f(0,0) & f(0,1) & \dots & f(0,n-1) \\
+f(1,0) & f(1,1) & \dots & f(1,n-1) \\
+\vdots & \vdots & \ddots & \vdots \\
+f(n-1,0) & f(n-1,1) & \dots & f(n-1,n-1)
+\end{bmatrix}
+\end{equation}
+
+O representada de manera compacta:
+
+\begin{equation} \label{eq:matrizCompacta}
+P_{i,j} = f(i, j) ~~~~ i,j \in {0, n-1}
+\end{equation}
+
+Una vez definido la forma de representar imágenes digitales, podemos proceder a explicar algunas técnicas clásicas de procesamiento.
 
 \section{Técnicas clásicas}
+
+En este apartado de abordarán de manera teórica los algoritmos y técnicas que se han tenido en cuenta para el desarrollo de este proyecto, iremos desde el preprocesamiento, pasando por la segmentación, operaciones morfológicas y finalmente el tracking de objetos, cubriendo así todo el pipeline de la solución implementada.
+
 \subsection{Preprocesamiento de imágenes}\label{subsec:preproc}
+
+El preprocesamiento de imágenes es una etapa fundamental en el procesamiento de imágenes digitales, ya que permite mejorar la calidad de la imagen y facilitar la posterior segmentación y análisis. En esta sección se describirán las técnicas de reducción de ruido y mejora de contraste que se han considerado para el desarrollo de este proyecto.
+
+\subsubsection{Mejora del contraste}
+La idea detrás de la mejora del contraste es aumentar la diferencia entre las intensidades de los píxeles, o lo que es lo mismo, hacer más oscuro lo oscuro y más claro lo claro. Ya que si los frames presentan un histograma de intensidades concentrado en un rango pequeño, la segmentación e identificación de detalles puede resultar difícil. Para solventar este problema se han tenido en cuenta las siguientes técnicas:
+
+\textbf{Ecualización Adaptativa del Histograma con Contraste Limitado (CLAHE):} La ecualización global del histograma puede amplificar el ruido en regiones uniformes, ya que un histograma muy concentrado en pocos valores se estira de forma agresiva al redistribuirse. Por eso, la idea principal de CLAHE \cite{zuiderveld1994clahe} es dividir la imagen en pequeñas regiones (tiles) y aplicar la ecualización del histograma de manera local en cada una de ellas. Además, para evitar la sobreamplificación del ruido, el histograma de cada tile se recorta en un límite de contraste configurable (clip limit), y el exceso se redistribuye uniformemente sobre el resto del histograma. Si no existiese este límite, el ruido se podría amplificar excesivamente; por ejemplo, si una zona de la imagen es homogénea (p.\,ej., un fondo oscuro) y contiene un par de píxeles ruidosos, tras la ecualización esos píxeles, antes imperceptibles, se convertirían en puntos brillantes. Finalmente, para evitar costuras visibles en las fronteras entre tiles, los valores de píxeles cercanos a los bordes se obtienen mediante interpolación bilineal entre los tiles vecinos, logrando así una transición suave y continua.
+
+\textbf{Estiramiento de contraste:} La idea detrás de esta técnica es remapear los valores de intensidad de la imagen al rango completo de valores posibles (0-255 para imágenes en escala de grises). Es decir, hace una transformación lineal que asigna el percentil mínimo ($p_{min}$) de intensidad a 0 y el percentil máximo ($p_{max}$) a 255, estirando proporcionalmente los valores intermedios:
+
+\begin{equation}
+I'(x,y) = \frac{I(x,y) - p_{min}}{p_{max} - p_{min}} \cdot 255
+\end{equation}
+
+Donde $I(x,y)$ es la intensidad original del píxel en la posición $(x,y)$, y $I'(x,y)$ es la intensidad remapeada. La razón para usar los percentiles en lugar de los valores mínimo y máximo absolutos es que si se usa el mínimo y máximo absolutos, un solo píxel ruidoso extremo puede arruinar el resultado. Por ejemplo, si hay un único píxel con valor 10 y otro con valor 250 por ruido, el estiramiento apenas hace nada porque el rango ya parece amplio. En cambio, usando percentiles (p.\,ej., el 1\% y el 99\%), se ignoran esos valores extremos y se obtiene un estiramiento más representativo del rango real de intensidades en la imagen.
+
+\begin{figure}[p]
+    \centering
+    \small
+    
+    \begin{subfigure}[b]{0.32\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{figures/1_img_original.jpg}
+        \caption{Imagen Original (Grises)}
+        \label{fig:img_orig}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.55\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{figures/1_hist_original.png}
+        \caption{Histograma Original}
+        \label{fig:hist_orig}
+    \end{subfigure}
+    
+    \vspace{0.3cm}
+    
+    \begin{subfigure}[b]{0.32\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{figures/2_img_clahe.jpg}
+        \caption{Imagen con CLAHE}
+        \label{fig:img_clahe}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.55\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{figures/2_hist_clahe.png}
+        \caption{Histograma CLAHE}
+        \label{fig:hist_clahe}
+    \end{subfigure}
+    
+    \vspace{0.3cm} 
+    
+    \begin{subfigure}[b]{0.32\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{figures/3_img_estiramiento.jpg}
+        \caption{Imagen con Estiramiento}
+        \label{fig:img_estir}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.55\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{figures/3_hist_estiramiento.png}
+        \caption{Histograma Estiramiento}
+        \label{fig:hist_estir}
+    \end{subfigure}
+    
+    \caption{Comparativa de técnicas de mejora: (a-b) Imagen original de bajo contraste; (c-d) Resultado tras aplicar ecualización adaptativa local (CLAHE); (e-f) Resultado tras estiramiento lineal de histograma mediante percentiles.}
+    \label{fig:mosaico_histogramas}
+\end{figure}
+
+En la figura \ref{fig:mosaico_histogramas} se puede observar un ejemplo de cómo el histograma de la imagen original (con bajo contraste) se concentra en un rango estrecho de intensidades, mientras que tras aplicar CLAHE o estiramiento de contraste, el histograma se distribuye de manera más uniforme a lo largo del rango completo, lo que mejora la visibilidad de los detalles en la imagen.
+
+\subsubsection{Reducción de ruido}
+
+Los procesos de mejora de contraste, especialmente el estiramiento por percentiles, pueden introducir o amplificar ruido de tipo sal y pimienta. Para eliminarlo sin degradar los bordes de las gotas se han considerado los siguientes enfoques:
+
+\paragraph{Filtros de suavizado clásicos:} Uno de los los filtros más comunes en el procesamiento de imágenes es el \textbf{filtro gaussiano}, que convoluciona la imagen con un núcleo gaussiano ($G(x,y,\sigma)$), atenuando las zonas donde hay cambios bruscos de intensidad (como el ruido). El parámetro $\sigma$ controla el grado de suavizado, siendo un valor más alto sinónimo de mayor suavizado. La fórmula que define el peso de cada píxel del núcleo de la convolución es la siguiente:
+\begin{equation}
+G(x,y,\sigma) = \frac{1}{2\pi\sigma^2} e^{-\frac{x^2 + y^2}{2\sigma^2}}
+\end{equation}
+En otras palabras, el filtro gaussiano asigna pesos más altos a los píxeles cercanos al centro del núcleo y pesos más bajos a los píxeles más alejados, lo que resulta en un efecto de suavizado que preserva las estructuras generales de la imagen mientras reduce el ruido.
+Otro filtro común es el \textbf{filtro de mediana}, que reemplaza cada píxel con la mediana de los valores de los píxeles en su vecindad. Este filtro es especialmente efectivo para eliminar el ruido de tipo sal y pimienta, ya que la mediana no se ve afectada por valores extremos (píxeles ruidosos), a diferencia del promedio que sí puede ser influenciado por ellos.
+
+\paragraph{Fast Non-Local Means Denoising (fNLM):} Los filtros clásicos solo consideran la información de los píxeles cercanos, pero el algoritmo \textbf{fNLM} \cite{ipol.2011.bcm_nlm} asume que una imagen puede tener patrones repetitivos como texturas o zonas lisas, así que toma información de todos los píxeles de la imagen para el suavizado. El algoritmo trabaja con ventanas de píxeles (patches), es decir el algoritmo cogerá una ventana alrededor del píxel a suavizar (el parche $v(N(i))$) y buscará en toda la imagen ventanas similares ($v(N(j))$). La definición matemática es la siguiente:
+\begin{equation}
+    NL(v) = \frac{1}{C(i)} \sum_{j \in \Omega} e^{-\frac{||v(N_i) - v(N_j)||^2_{2,a}}{h^2}} v(j)
+\end{equation}
+Donde $NL(v)$ es el nuevo valor que le vamos a dar al píxel $i$, $C(i)$ es un factor de normalización, se divide por la suma total de los pesos. El $\sum_{j \in \Omega} ... v(j)$ Es la suma de los valores de los píxeles $j$ multiplicados por un peso que explicaremos a continuación. $||v(N_i) - v(N_j)||^2_{2,a}$ mide la similitud entre los parches, es decir, la distancia euclídea entre los parches $N_i$ y $N_j$, ponderada por una función gaussiana que da más importancia a los píxeles cercanos al centro del parche. El parámetro $h$ controla el grado de suavizado, siendo un valor más alto sinónimo de mayor suavizado. Esto hace que si el parche $N_j$ es muy similar al parche $N_i$, el peso será alto y el valor de $v(j)$ contribuirá significativamente al nuevo valor de $i$. Por el contrario, si el parche $N_j$ es diferente, el peso será bajo y su contribución será mínima. De esta forma, el algoritmo logra reducir el ruido mientras preserva los detalles y texturas de la imagen. Este algoritmo es fast ya que se restringe la búsqueda de parches similares a una ventana de tamaño $S$ alrededor del píxel $i$, en lugar de buscar en toda la imagen, lo que reduce el orden de complejidad de  $\mathcal{O}(N^2)$ a $\mathcal{O}(N \log N)$, donde $N$ es el número total de píxeles en la imagen.
+
+
 \subsection{Segmentación de imágenes}\label{subsec:segmentacion}
+
+Segmentación es el proceso de dividir una imagen en regiones o segmentos con significado semantico, en este caso, el objetivo es segmentar las gotas del fondo.
+
+\subsubsection{Umbralización}
+
 \subsection{Operaciones morfológicas}
 \subsection{Tracking de objetos}
 
