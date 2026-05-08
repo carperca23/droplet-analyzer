@@ -189,7 +189,66 @@ Segmentación es el proceso de dividir una imagen en regiones o segmentos con si
 
 \subsubsection{Umbralización}
 
+La umbralización es una de las técnicas de segmentación más simple, consiste en convertir una imagen en escala de grises en una imagen binaria, donde los píxeles se clasifican como pertenecientes a un objeto (en este caso, una gota) o al fondo, dependiendo de si su intensidad es mayor o menor que un umbral $T$.
+
+En la umbralización global, se elige un único valor de $T$ para toda la imagen. El método \textbf{Otsu} \cite{otsu1979} selecciona automáticamente el umbral que maximiza la varianza entre las clases:
+\begin{equation}
+    T^{*} = \arg\max_T \left[ w_{0}(T)w_{1}(T)(\mu_{0}(T)-\mu_{1}(T))^2\right]
+\end{equation}
+Donde $w_{0}(T)$ y $w_{1}(T)$ son las proporciones de las clases de fondo y objeto respectivamente, y $\mu_{0}(T)$ y $\mu_{1}(T)$ son las medias de intensidad de cada clase. Sin embargo, en imágenes con iluminación no uniforme o bajo contraste, la umbralización global puede no ser efectiva, ya que un único umbral puede no separar adecuadamente los objetos del fondo en todas las regiones de la imagen.
+
+Para solucionar este problema, se ha optado por la \textbf{umbralización adaptativa}, en concreto, su versión gaussiana, que calcula un umbral local $T(x,y)$
+para cada píxel basado en la media ponderada gaussiana de los píxeles vecinos en una ventana de tamaño $N$ centrada en $(x,y)$, a la que se le resta una constante $C$ para ajustar el umbral:
+\begin{equation}
+    T(x,y) = \mu_{gauss}(x, y) - C
+\end{equation}
+El uso de un umbral local asegura la robustez de la segmentación frente a variaciones de iluminación.
+
+\subsubsection{Extracción de contornos}
+Una vez binarizada la imagen, los contornos permiten delimitar exactamente cada región segmentada. El algoritmo de \textbf{Suzuki \& Abe} \cite{SUZUKI198532} realiza un recorrido topológico de la imagen binaria etiquetando los bordes exteriores e interiores mediante una única pasada sobre los píxeles, lo que lo hace eficiente en memoria y tiempo. OpenCV expone este algoritmo a través de \texttt{cv2.findContours}, con distintos modos de recuperación (\texttt{RETR\_EXTERNAL} para contornos solo externos, \texttt{RETR\_TREE} para la jerarquía completa) y métodos de aproximación (\texttt{CHAIN\_APPROX\_SIMPLE} para comprimir segmentos rectos, \texttt{CHAIN\_APPROX\_NONE} para devolver todos los puntos).
+
 \subsection{Operaciones morfológicas}
+
+Las operaciones morfológicas operan sobre conjuntos binarios, mediante un elemento estrcuturante (normalmente un cuadrado o un círculo) de forma y tamaño configurable. Las dos operaciones básicas son la dilatación y la erosión, que forman las operaciones compuestas. La \textbf{erosión} elimina píxeles de los bordes de los objetos, lo que puede ayudar a eliminar pequeñas regiones ruidosas o separar objetos conectados. Por otro lado, la dilatación agrega píxeles a los bordes de los objetos, lo que puede ayudar a cerrar pequeños agujeros o conectar objetos cercanos. Combinando estas dos operaciones se puede obtener la apertura y el cierre.
+
+La \textbf{apertura} (opening) es la combinación de erosión seguida de dilatación, lo que elimina objetos más pequeños que el kernel y suaviza los bordes de los objetos más grandes, se suele usar para eliminar ruido del tipo sal y pimienta:
+\begin{equation}
+ A \circ B = (A \ominus B) \oplus B
+\end{equation}
+El \textbf{cierre} (closing) es la combinación de dilatación seguida de erosión, lo que cierra pequeños agujeros dentro de los objetos y conecta objetos cercanos, se suele usar para rellenar huecos en los objetos segmentados:
+\begin{equation}
+ A \bullet B = (A \oplus B) \ominus B
+\end{equation}
+En la implementación desarrollada se aplica primero la apertura para eliminar el ruido generado por la umbralización, y a continuación el cierre para recuperar la integridad de las gotas que hubieran quedado fragmentadas.
+
 \subsection{Tracking de objetos}
 
+El tracking o seguimiento de objetos en vídeos es el proceso de asociar, frame a frame, las detecciones correspondientes al mismo objeto, construyendo así su trayectoria.
+
+\subsubsection{Flujo óptico de Lucas-Kanade}
+
+El algoritmo de \textbf{Lucas-Kanade} \cite{lucas1981iterative} se basa en la hipótesis de constancia de intensidad, es decir, asume que la intensidad de los píxeles de un objeto se mantiene constante entre frames consecutivos. Para ello, toma una ventana local de píxeles alrededor de cada punto de interés y asume que todos los píxeles de dicha ventana se desplazan de forma uniforme. A continuación, busca en el siguiente frame la posición que minimiza la diferencia de intensidades respecto a la ventana original, obteniendo así el vector de desplazamiento del punto.
+Matemáticamente, el algoritmo resuelve la siguiente ecuación para cada punto de interés:
+\begin{equation}
+    \begin{pmatrix} \sum I_x^2 & \sum I_x I_y \\ \sum I_x I_y & \sum I_y^2 \end{pmatrix}
+    \begin{pmatrix} u \\ v \end{pmatrix}
+    =
+    -\begin{pmatrix} \sum I_x I_t \\ \sum I_y I_t \end{pmatrix}
+\end{equation}
+
+donde $(u, v)$ es el vector de desplazamiento que se desea calcular, $I_x$ e $I_y$ son las derivadas parciales de la intensidad de la imagen respecto a $x$ e $y$, respectivamente, y $I_t$ es la derivada parcial respecto al tiempo, es decir, la diferencia de intensidades entre los dos frames.
+
+Este sistema es sobredeterminado: la ecuación básica del flujo óptico $I_x u + I_y v + I_t = 0$ tiene dos incógnitas ($u$ y $v$) pero se aplica a todos los píxeles de la ventana local, generando más ecuaciones que incógnitas. Para obtener una solución única, Lucas-Kanade minimiza la suma de los errores al cuadrado de todas las ecuaciones de la ventana, lo que conduce al sistema matricial $2\times2$ mostrado anteriormente, que sí tiene solución única siempre que la matriz del sistema no sea singular, es decir, siempre que exista suficiente textura en la ventana local.
+
+Sin embargo, la formulación básica falla cuando el desplazamiento entre frames es grande en comparación con el tamaño de la ventana, ya que la hipótesis de desplazamiento uniforme deja de ser válida. Para solventar esto, en la práctica se emplea la \textbf{versión piramidal} del algoritmo \cite{bouguet2001pyramidal}: la imagen se submuestrea en varios niveles de resolución formando una pirámide, se calcula el flujo en el nivel más grueso (donde los grandes desplazamientos se convierten en pequeños) y el resultado se refina progresivamente hacia la resolución original. OpenCV implementa esta variante a través de la función \texttt{cv2.calcOpticalFlowPyrLK}, que es la utilizada en la implementación desarrollada.
+
+\subsubsection{Asignación por distancia mínima}
+
+Una vez predichas las posiciones futuras de los tracks activos mediante flujo óptico, el problema de asociación consiste en decidir qué detección del fotograma actual corresponde a cada track. La estrategia greedy por distancia mínima selecciona para cada detección el track disponible más cercano en términos de distancia euclídea entre centroides, siempre que dicha distancia no supere un umbral máximo configurable. Los tracks que no reciben ninguna detección durante varios fotogramas consecutivos se consideran perdidos y se descartan, mientras que las detecciones sin track asignado generan nuevos tracks.
+Este enfoque, combinado con la predicción de Lucas-Kanade, es suficientemente robusto para los vídeos analizados de corta duración ( $\approx$ 120 fotogramas) y con movimiento de gotas relativamente uniforme sin necesidad de recurrir a métodos más complejos como el filtro de Kalman.
+
 \section{Técnicas basadas en deep learning}
+
+Además de los algoritmos clásicos descritos anteriormente, se evaluó la viabilidad de utilizar modelos de segmentación basados en aprendizaje profundo, en particular el modelo \textbf{Segment Anything Model (SAM)} \cite{kirillov2023sam}. SAM es un modelo de segmentación de propósito general entrenado sobre más de mil millones de máscaras anotadas, capaz de segmentar cualquier objeto a partir de prompts en forma de puntos, cajas delimitadoras o máscaras previas. Su arquitectura combina un codificador de imagen basado en \textbf{Vision Transformer (ViT)} con un decodificador ligero de máscaras, lo que le permite generar segmentaciones precisas en una amplia variedad de dominios sin necesidad de reentrenamiento.
+
+Sin embargo, tras las pruebas realizadas en el entorno local, se decidió descartar el uso de SAM como solución final por las siguientes razones: el modelo requiere una GPU con memoria suficiente y una instalación de CUDA, lo que supone una barrera de hardware para los investigadores del departamento. Los tiempos de inferencia por fotograma son significativamente mayores que los de la solución clásica y, en las pruebas realizadas, la ventaja en precisión de segmentación no justificaba el sobrecoste computacional para el tipo de imágenes analizadas, donde las gotas presentan un contraste razonablemente bien definido tras el preprocesamiento. Por estos motivos, se optó por la solución clásica basada en OpenCV, que ofrece un buen equilibrio entre precisión, rendimiento y accesibilidad.
