@@ -408,7 +408,7 @@ En esta sección se describirá la interfaz gráfica desarrollada para la aplica
 
 La interfaz gráfica se ha implementado en una clase llamada \texttt{DropletAnalyzerGUI}. La figura \ref{fig:diagramaClaseGUI} muestra un diagrama resumido de esta clase, donde se observan los métodos y atributos principales que componen la interfaz gráfica (GUI).
 
-\begin{figure}[ht]
+\begin{figure}[H]
     \centering
     \includegraphics[width=0.9\textwidth]{figures/clase_front.png}
     \caption{Diagrama resumido de la clase DropletAnalyzerGUI.}
@@ -417,7 +417,7 @@ La interfaz gráfica se ha implementado en una clase llamada \texttt{DropletAnal
 
 Esta clase actua como controlador principal, ya que mantiene el estado de la aplicación y organiza las llamadas al backend a través de los objetos \texttt{DropletAnalyzer}, encargado del procesamiento, y \texttt{DropletPlotter}, encargado de pintar los gráficos.
 
-Durante el diseño se tomó la decisión de crear un hilo separado para el procesamiento, lo que permite que la interfaz gráfica no se bloquee durante la ejecución de un análisis, para ello se ha utilizado la librería \textbf{threading} \cite{threading_library}. Para comunicar ambos hilos, se han usado dos colas (\textbf{queue.Queue})\cite{queue_library}:
+Durante el diseño se tomó la decisión de crear un hilo separado para el procesamiento, lo que permite que la interfaz gráfica no se bloquee durante la ejecución de un análisis, para ello se ha utilizado la librería \textbf{threading} \cite{threading_library} \cite{moore2018python}. Para comunicar ambos hilos, se han usado dos colas (\textbf{queue.Queue})\cite{queue_library}:
 \begin{itemize}
     \item \textbf{Cola de log}: el hilo de procesamiento deposita mensajes de texto que el hilo de la interfaz consume mediante un poll (\texttt{root.after}) para que actualice los widgets de la interfaz con la información de la cola. Esto se hace de esta manera para evitar que el hilo de procesamiento tenga que interactuar directamente con los widgets de la interfaz, lo que con Tkinter no es seguro.
     \item \textbf{Cola de previsualización}: para implementar la previsualización del procesamiento en tiempo real, el hilo de procesamiento deposita tuplas de cuatro imagenes en la cola (origina, preprocesada, binarizada y con tracking), que el hilo de la interfaz consume y renderiza en la ventana de previsualización.
@@ -427,8 +427,114 @@ El estilo visual de la interfaz se configura mediante \textbf{ttk.Style} con el 
 
 \subsection{Descripción de la interfaz}
 
-La interfaz consta de cinco secciones numeradas que guían al usuario a través del proceso. También se implementa una ventana flotante de presvisualización que muestra el resultado del procesamiento en tiempo real.
+La interfaz consta de seis secciones numeradas que guían al usuario a través del proceso. También se implementa una ventana flotante de presvisualización que muestra el resultado del procesamiento en tiempo real.
 
 \subsubsection{Sección 1: Carga de Vídeo}
 
 En esta sección el usuario carga el vídeo a analizar mediante un botón que abre un diálogo de selección de archivos (\texttt{filedialog.askopenfilename}). Los formatos de vídeo soportados son AVI, MP4, MOV y MKV, aunque se podrían añadir otros formatos compatibles con OpenCV sin demasiada dificultad. Una vez cargado el vídeo, se instancia un objeto \texttt{DropletAnalyzer} provisional para extraer la información de los frames y fps, que se muestra en la interfaz.
+
+\subsubsection{Sección 2: Calibración}
+En esta sección el usuario introduce el factor de escala de unidad real por píxel, (p. ej., 0.25 $\mu m$/píxel). Si el valor de escala se deja a cero, se asume que el usuario no desea convertir a unidades reales y se mantendrán las unidades en píxeles.
+
+Por otro lado, dado que la cámara Shimadzu HPV-2 utilizada en los experimentos graba hasta 1 millón de fps, pero los fps almacenado en el archivo de vídeo no reflejan esta tasa real, se ha dotado a esta sección con un campo de entrada que permite configurar la tasa de frames efectiva, que es la tasa con la que se hará posteriormente el cálculo de velocidades. 
+
+\subsubsection{Sección 3: Nombres de archivos de salida}
+
+Este tercer panel permite configurar los nombres de los ficheros que se generarán en el directorio de salida \texttt{output/}:
+\begin{itemize}
+    \item \textbf{CSV de datos}: archivo CSV con todas las mediciones por gota y por frame, incluyendo posición, área, perímetro, diámetro equivalente, circularidad entre otras.
+    \item \textbf{Vídeo procesado}: Video en formato AVI con las detecciones y trayectorias superpuestas en el vídeo original.
+    \item \textbf{Gráficos}: Arhivo PNG con diferentes gráficos de análisis, como la distribución de áreas, velocidades, etc.
+    \item \textbf{Frame preprocesado}: Imagen PNG del resultado de aplicar el preprocesamiento al primer frame. Contiene un checkbox que permite que el usuario decida si desea guardar esta imagen o no.
+    \item \textbf{Frame binarizado}: Imagen PNG del resultado de aplicar la umbralización al primer frame. Contiene un checkbox que permite que el usuario decida si desea guardar esta imagen o no. 
+\end{itemize}
+
+\subsubsection{Sección 4: Parámetros de procesamiento}
+
+En esta sección el usuario puede configurar los valores de diversos parámetros que afectan al procesamiento. Los parámetros numéricos disponen de un campo de entrada para introducir el valor, un slider para ajustar el valor de manera más visual y un botón de reset que devuelve el valor a su valor por defecto. Los parámetros configurables desde la interfaz gráfica se resumen en la tabla \ref{tab:parametros_gui}, donde se muestra una breve descripción de cada parámetro, el rango de valores permitidos y el valor por defecto.
+
+El parámetro de tamaño de bloque adaptativo compruea que el valor introducido sea un número impar, ya que la función de umbralización adaptativa de OpenCV requiere que este parámetro sea impar. Además si no se selecciona CLAHE, el parámetro de contraste CLAHE se deshabilita para evitar confusión.
+
+Por último, si se desactiva la casilla de Mejorar Tracking con Lucas-Kanade, solo se usará el método de asignacuón por distancia mínima en el tracking.
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{|p{4.4cm}|p{5.5cm}|p{2.2cm}|p{2.2cm}|}
+\hline
+\textbf{Parámetro} & \textbf{Descripción} & \textbf{Rango} & \textbf{Valor por defecto} \\
+\hline
+Método de contraste & CLAHE local o estiramiento global por percentiles & --- & Estiramiento global \\
+\hline
+Área mínima (px²) & Área mínima para considerar una región como gota & 1 – 500 & 10 \\
+\hline
+Área máxima (px²) & Área máxima para considerar una región como gota & 100 – 10\,000 & 5\,000 \\
+\hline
+Circularidad mínima & Umbral de circularidad para filtrar falsos positivos & 0 – 1 & 0.6 \\
+\hline
+Redondez mínima & Umbral de redondez para filtrar contornos elongados & 0 – 1 & 0 \\
+\hline
+Distancia máxima de tracking (px) & Distancia euclídea máxima para asociar una detección a un track & 5 – 200 & 50 \\
+\hline
+Tamaño ventana Lucas-Kanade & Tamaño de la ventana de búsqueda del flujo óptico & 5 – 51 & 15 \\
+\hline
+Contraste CLAHE & \textit{Clip limit} del algoritmo CLAHE & 0.5 – 10 & 2 \\
+\hline
+Fuerza reducción de ruido & Parámetro $h$ del algoritmo fNLM & 1 – 30 & 10 \\
+\hline
+Tamaño bloque adaptativo & Tamaño de la ventana de umbralización adaptativa gaussiana (siempre impar) & 3 – 31 & 11 \\
+\hline
+Constante adaptativa $C$ & Constante restada a la media local en la umbralización & $-10$ – 10 & 2 \\
+\hline
+Tamaño kernel morfología & Tamaño del elemento estructurante elíptico para apertura y cierre & 1 – 15 & 3 \\
+\hline
+\end{tabular}
+\caption{Parámetros de segmentación configurables desde la interfaz gráfica.}
+\label{tab:parametros_gui}
+\end{table}
+
+\subsubsection{Sección 5: Procesamiento y control}
+
+En esta sección se encuentran todos los elementos necesarios para iniciar, detener y monitorizar el proceso de análisis. El panel contiene los siguientes widgets:
+
+\begin{itemize}
+    \item \textbf{Botón Analizar todo}: Lanza el proceso de análisis en un hilo separado.
+    \item \textbf{Botón Cancelar}: Activa un flag \texttt{cancel\_requested} que el hilo de procesamiento comprueba en cada iteración del bucle principal para detener el proceso de forma segura.
+    \item \textbf{Barra de progreso y frame actual}: Muestra el progreso del análisis y el frame que se está procesando en cada momento. Se actualiza a través del callback \textbf{set\_progress\_callback()}.
+    \item \textbf{Checkbox de líneas de tracking}: Permite activar o desactivar la visualización de las líneas de tracking en el vídeo procesado.
+    \item \textbf{Botón frames de diagnóstico}: Genera y guarda los frames preprocesado y binarizado del primer fotograma del vídeo sin necesidad de ejecutar el pipeline completo, lo que resulta muy útil para ajustar los parámetros de segmentación antes del análisis.
+    \item \textbf{Botón abrir resultados}: Abre el directorio de salida \texttt{output/} en el explorador de archivos, donde se guardan todos los archivos generados tras el análisis, incluyendo el CSV con las mediciones, el vídeo procesado y los gráficos de análisis.
+\end{itemize}
+
+\subsubsection{Sección 6: Log de procesamiento y estadísticas}
+
+El log de procesamiento es un widget de texto que va mostrando en tiempo real los mensajes generados por el hilo de procesamiento, como errores, progreso y las rutas de los archivos generados.
+
+Además, una vez finalizado el análisis, se rellena un panel automáticamente con las estadísticas del análisis como el número de gotas detectadas, estadísticas descriptivas (media, mediana, desviación estándar, mínimo y máximo) de las variables de interés (área, circularidad, diámetro ...).
+
+\subsection{Comunicación con el backend}
+
+La interfaz actua exclusivamente como consumidor de la API del backend, sin acceder nunca a las variables internas del analizador. La secuencia de llamadas al backend sería la siguiente:
+\begin{enumerate}
+    \item Se instancia un objeto \texttt{DropletAnalyzer}, se configuran los parámetros con \texttt{set\_parameter()}, la escala con \texttt{set\_scale()} y la tasa de frames efectiva con \texttt{set\_fps()}.
+    \item Se configura el callback de progreso con \texttt{set\_progress\_callback()} para que el backend pueda actualizar la barra de progreso de la interfaz.
+    \item El hilo de procesamiento ejecuta el bucle principal, llamando para cada frame a \texttt{preprocess\_frame()}, \texttt{segment\_droplets()} y \texttt{track\_droplets()}.
+    \item Se calculan las velocidades con \texttt{calculate\_velocities()} y se exportan los resultados con \texttt{export\_results()}.
+    \item La clase \texttt{DropletPlotter} recibe los datos y genera los gráficos llamando a \texttt{generate\_all\_plots()} y los csv de cada métrica con \texttt{export\_individual\_csvs()}.
+    \item Por último, el hilo llama a \texttt{root.after(0, \_on\_pipeline\_complete)}, que programa la actualización de la GUI para mostrar las estadísticas finales y habilitar el botón de abrir resultados.
+\end{enumerate}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth, height=\textheight, keepaspectratio]{figures/diagrama_front.png}
+    \caption{Diagrama de secuencia de la interacción backend-frontend.}
+    \label{fig:diagramaSecuencia}    
+\end{figure}
+
+La figura \ref{fig:diagramaSecuencia} muestra la secuencia de llamadas entre el backend y el frontend durante el proceso de análisis.
+
+\subsection{Previsualización en tiempo real}
+
+Durante la ejecución, se despliega una ventana flotante (\texttt{tk.Toplevel}) que muestra una previsualización en tiempo real del procesamiento, con cuatro paneles que muestran el frame original, el frame preprocesado, el frame binarizado y el frame con las detecciones y tracking superpuestos. Esta funcionalidad es de gran utilidad para poder ajustar parámetros sin la necesidad de ejecutar el pipeline completo, ya que si vemos que los resultados no son buenos, podemos detener la ejecución, cambiar los parámetros y volver a lanzar el proceso de análisis, lo que ahorra mucho tiempo.
+
+Las imágenes no se actualizan cada iteración, sino aproximadamente 10 veces por cada segundo de vídeo procesado, para no provocar un cuello de botella en el rendimiento. La imágenes se muestran usando Pillow \cite{pillow2023}, ya que Tkinter no permite renderizar directamente arrays de Numpy, que es el formato con el que trabaja OpenCv.

@@ -109,7 +109,7 @@ class DropletAnalyzerGUI:
         ttk.Entry(names_frame, textvariable=self.plots_filename_var, width=22).grid(row=0, column=4, sticky=(tk.W, tk.E), padx=2)
         ttk.Label(names_frame, text=".png", foreground='gray').grid(row=0, column=5, sticky=tk.W)
 
-        ttk.Label(names_frame, text="Video rastreado:").grid(row=1, column=0, sticky=tk.W, padx=5, pady=2)
+        ttk.Label(names_frame, text="Video procesado:").grid(row=1, column=0, sticky=tk.W, padx=5, pady=2)
         ttk.Entry(names_frame, textvariable=self.video_out_filename_var, width=22).grid(row=1, column=1, sticky=(tk.W, tk.E), padx=2)
         ttk.Label(names_frame, text=".avi", foreground='gray').grid(row=1, column=2, sticky=tk.W)
 
@@ -125,7 +125,7 @@ class DropletAnalyzerGUI:
         self.bin_frame_entry.grid(row=2, column=4, sticky=(tk.W, tk.E), padx=2)
         ttk.Label(names_frame, text=".png", foreground='gray').grid(row=2, column=5, sticky=tk.W)
 
-        params_frame = ttk.LabelFrame(main_frame, text="4. Parámetros de Segmentación", padding="8")
+        params_frame = ttk.LabelFrame(main_frame, text="4. Parámetros de Procesamiento", padding="8")
         params_frame.grid(row=4, column=0, rowspan=2, sticky=(tk.W, tk.E, tk.N, tk.S), pady=3, padx=(0, 5))
         params_frame.columnconfigure(0, weight=1)
         params_frame.rowconfigure(0, weight=1)
