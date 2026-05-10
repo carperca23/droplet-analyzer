@@ -402,4 +402,33 @@ Este enfoque híbrido hace que el tracker sea más robusto ante movimiento rápi
 
 \section{Frontend}
 
-En esta sección se describirá la interfaz gráfica desarrollada para la aplicación, detallando sus funcionalidades y cómo interactua con el backend. Vuelvo a remarcar que el mayor esfuerzo de implementación se ha centrado en el desarrollo del backend, por lo que la interfaz gráfica se ha diseñado de forma sencilla e intuitiva, con el objetivo de facilitar su uso por parte de los usuarios sin necesidad de conocimientos técnicos avanzados. La interfaz gráfica se ha desarrollado utilizando la biblioteca Tkinter de Python, que proporciona una amplia variedad de widgets y herramientas para crear interfaces gráficas de usuario.
+En esta sección se describirá la interfaz gráfica desarrollada para la aplicación, detallando sus funcionalidades y cómo interactua con el backend. Vuelvo a remarcar que el mayor esfuerzo de implementación se ha centrado en el desarrollo del backend, por lo que la interfaz gráfica se ha diseñado de forma sencilla e intuitiva, con el objetivo de facilitar su uso por parte de los usuarios sin necesidad de conocimientos técnicos avanzados. La interfaz gráfica se ha desarrollado utilizando la biblioteca estándar Tkinter \cite{tkinter_library} de Python, que proporciona una amplia variedad de widgets y herramientas para crear interfaces gráficas de usuario.
+
+\subsection{Arquitectura de la interfaz gráfica}
+
+La interfaz gráfica se ha implementado en una clase llamada \texttt{DropletAnalyzerGUI}. La figura \ref{fig:diagramaClaseGUI} muestra un diagrama resumido de esta clase, donde se observan los métodos y atributos principales que componen la interfaz gráfica (GUI).
+
+\begin{figure}[ht]
+    \centering
+    \includegraphics[width=0.9\textwidth]{figures/clase_front.png}
+    \caption{Diagrama resumido de la clase DropletAnalyzerGUI.}
+    \label{fig:diagramaClaseGUI}
+\end{figure}
+
+Esta clase actua como controlador principal, ya que mantiene el estado de la aplicación y organiza las llamadas al backend a través de los objetos \texttt{DropletAnalyzer}, encargado del procesamiento, y \texttt{DropletPlotter}, encargado de pintar los gráficos.
+
+Durante el diseño se tomó la decisión de crear un hilo separado para el procesamiento, lo que permite que la interfaz gráfica no se bloquee durante la ejecución de un análisis, para ello se ha utilizado la librería \textbf{threading} \cite{threading_library}. Para comunicar ambos hilos, se han usado dos colas (\textbf{queue.Queue})\cite{queue_library}:
+\begin{itemize}
+    \item \textbf{Cola de log}: el hilo de procesamiento deposita mensajes de texto que el hilo de la interfaz consume mediante un poll (\texttt{root.after}) para que actualice los widgets de la interfaz con la información de la cola. Esto se hace de esta manera para evitar que el hilo de procesamiento tenga que interactuar directamente con los widgets de la interfaz, lo que con Tkinter no es seguro.
+    \item \textbf{Cola de previsualización}: para implementar la previsualización del procesamiento en tiempo real, el hilo de procesamiento deposita tuplas de cuatro imagenes en la cola (origina, preprocesada, binarizada y con tracking), que el hilo de la interfaz consume y renderiza en la ventana de previsualización.
+\end{itemize}
+
+El estilo visual de la interfaz se configura mediante \textbf{ttk.Style} con el tema clam, que proporciona un aspecto limpio.
+
+\subsection{Descripción de la interfaz}
+
+La interfaz consta de cinco secciones numeradas que guían al usuario a través del proceso. También se implementa una ventana flotante de presvisualización que muestra el resultado del procesamiento en tiempo real.
+
+\subsubsection{Sección 1: Carga de Vídeo}
+
+En esta sección el usuario carga el vídeo a analizar mediante un botón que abre un diálogo de selección de archivos (\texttt{filedialog.askopenfilename}). Los formatos de vídeo soportados son AVI, MP4, MOV y MKV, aunque se podrían añadir otros formatos compatibles con OpenCV sin demasiada dificultad. Una vez cargado el vídeo, se instancia un objeto \texttt{DropletAnalyzer} provisional para extraer la información de los frames y fps, que se muestra en la interfaz.
