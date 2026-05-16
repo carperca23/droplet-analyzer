@@ -1,13 +1,40 @@
 % LTeX: language=es
 
-\chapter{Gestión del proyecto}
+\chapter{Planificación y Costes}
 
-\subsection{Metodología de desarrollo}
+\section{Metodología de desarrollo}
 
-\subsection{Desglose de tareas}
+El desarrollo de este proyecto ha seguido una textbf{metodología iterativa e incremental}, basada en los principios ágiles del desarrollo de software. Se ha decidido adoptar esta metodología en lugar de un enfoque clásico en cascada debido al tipo de proyecto ante el que nos encontramos, que al ser de carácter exploratorio, requiere una gran flexibilidad que permita ir validando hipótesis en cada iteración para ir ajustando el rumbo del desarrollo. Además, al comenzar el proyecto, se tenía claro el objetivo al que se quería llegar, pero no el camino a seguir para alcanzarlo, por este motivo, una metodología en casada no habría sido viable por la rigidez e intolerancia al cambio por la que se caracteriza.
 
-\subsection{Planificación temporal}
+El proyecto se ha planteado con textbf{ciclos cortos de desarrollo} de una o dos semanas de duración, según la dificultad de los obetivos marcados y la carga lectiva de ese periodo, cada uno de ellos estructurado de la siguiente manera:
 
-\subsection{Estudio económico y presupuesto}
+\begin{itemize}
+    \item \textbf{Planificación:} Se definen los objetivos concretos del ciclo (p. ej., implementar la umbralización adaptativa, desarrollar la mejora del tracking, etc.)
+    \item \textbf{Implementación:} Se trabaja sobre el código para integrar los nuevos objetivos con el resto de la arquitectura del analizador.
+    \item \textbf{Prueba y validación:} Una vez completado el desarrollo del ciclo, se prueban las nuevas funcionalidades para ver si cumplen los objetivos marcados.
+    \item \textbf{Revisión:} Se evalúa junto con el tutor el resultado del ciclo, se marcan posibles puntos de mejora y se planifica el siguiente ciclo. Muchas veces en esta fase, se decide tomar un camino diferente en el diseño del analizador, como por ejemplo, descartar el uso de modelos de deep learning para la segmentación de las gotas.
+\end{itemize}
 
-\subsection{Análisis de riesgos}
+Esta metodología ha permitido un contacto estrecho con los tutores del proyecto, que en este caso actúan como \textit{stakeholders} del proyecto, que aportaban retroalimentación desde la perspectiva de investigadores y usuarios finales del analizador. Dicha retroalimentación ha sido especialmente valiosa en muchas decisiones de diseño, como por ejemplo, la inclusión del factor pixel-unidad real, la implementación de la visualización en tiempo real, o la elección de las gráficas que se exportan al finalizar el análisis.
+
+Para gestionar todo el código desarrollado, se ha utilizado Git y GitHub \cite{git_software} \cite{github_platform}, lo que ha permitido llevar un historial de versiones que permitía revertir a versiones anteriores en caso de que alguna nueva funcionalidad introdujera errores o no cumpliera con los objetivos marcados. Además, como el analizador posee una estructura modular, cada nueva funcionalidad se desarrollaba en ramas separadas, para poder probarlas sin interferir con el resto del desarrollo. La memoria del proyecto también se ha gestionado en el mismo repositorio, centralizando documentación y código en un mismo lugar.
+
+\section{Documento de requisitos}
+
+En esta sección se detallarán los requisitos funcionales y no funcionales que se han identificado para el proyecto, fruto de las reuniones con los tutores y del desglose del flujo de trabajo actual del análisis manual de los experimentos del departamento.
+
+\subsection{Requisitos funcionales}
+
+\subsection {Requisitos no funcionales}
+
+\section{Alcance del proyecto}
+
+\section{Hitos}
+
+\section{Desglose de tareas (EDT)}
+
+\section{Planificación temporal}
+
+\section{Estudio económico y presupuesto}
+
+\section{Análisis de riesgos}
