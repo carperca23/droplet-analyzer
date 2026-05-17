@@ -160,10 +160,204 @@ A continuación, se describirán con más detalle cada una de los bloques y sus 
 \section{Planificación temporal}
 
 La planificación temporal recoge la distribución en el tiempo de las tareas definidas en la EDT y los hitos del proyecto. Para su elaboración se ha utilizado \textbf{Microsoft Project} \cite{microsoft_project}, herramienta estándar en la gestión de proyectos que permite construir diagramas de Gantt, asignar duraciones y dependencias entre tareas, y visualizar la ruta crítica del proyecto. El diagrama resultante se muestra en la Figura.
- 
-Dado que la metodología adoptada es iterativa, la planificación no es completamente lineal: algunas tareas se solapan en el tiempo o se retoman en iteraciones posteriores a medida que los resultados de las pruebas orientan el desarrollo. No obstante, el diagrama de Gantt refleja una estimación razonable de la dedicación real a cada grupo de tareas a lo largo del periodo de desarrollo del proyecto.
 
+Dado que la metodología adoptada es iterativa, la planificación no es completamente lineal: algunas tareas se solapan en el tiempo o se retoman en iteraciones posteriores a medida que los resultados de las pruebas orientan el desarrollo. No obstante, el diagrama de Gantt refleja una estimación razonable de la dedicación real a cada grupo de tareas a lo largo del periodo de desarrollo del proyecto, que abarca desde el \textbf{3 de marzo de 2025} hasta la \textbf{entrega final el 27 de mayo de 2026}.
+ 
+\subsection{Hitos y tareas asociadas}
+ 
+El cronograma se organiza en torno a siete hitos que marcan la finalización de etapas significativas del proyecto. La tabla~\ref{tab:hitos} resume cada hito, su fecha objetivo y las tareas de la EDT que quedan completadas al alcanzarlo.
+
+Cabe destacar que la tarea T5.1 (redacción de la memoria) se desarrolla de forma transversal a lo largo de todo el proyecto, aunque su mayor carga de trabajo se concentra en el periodo comprendido entre H-06 y H-07. De igual forma, T4 (pruebas y ajuste de parámetros) se realiza de manera continua desde H-03, aunque la fase de validación formal queda recogida entre H-05 y H-06.
+ 
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{p{1cm} p{4.8cm} p{2cm} p{5cm}}
+\hline
+\textbf{ID} & \textbf{Hito} & \textbf{Fecha} & \textbf{Tareas completadas} \\
+\hline
+H-01 & Inicio del proyecto & 03/03/2025 & — \\
+H-02 & Marco teórico y aproximación al problema & 31/08/2025 & T1.1, T1.2, T1.3, T1.4 \\
+H-03 & Pipeline básico funcional & 30/11/2025 & T2.1, T2.2, T2.3, T2.4, T2.7 \\
+H-04 & Interfaz gráfica de usuario & 31/12/2025 & T3.1, T3.2, T3.3, T3.4, T3.5 \\
+H-05 & Implementación del tracking & 28/02/2026 & T2.5, T2.6 \\
+H-06 & Pruebas y ajustes finales & 31/03/2026 & T4.1, T4.2, T4.3 \\
+H-07 & Memoria y entrega final & 27/05/2026 & T5.1, T5.2 \\
+\hline
+\end{tabular}
+\caption{Hitos del proyecto con sus fechas objetivo y tareas de la EDT asociadas.}
+\label{tab:hitos}
+\end{table}
+
+\begin{landscape}
+    \begin{figure}[h]
+        \centering
+        \includegraphics[width=\linewidth]{figures/gantt1.pdf}
+        \caption{Diagrama de Gantt del proyecto (1).}
+        \label{fig:gantt1}
+    \end{figure}
+\end{landscape}
+
+\begin{landscape}
+    \begin{figure}[h]
+        \centering
+        \includegraphics[width=\linewidth]{figures/gantt2.pdf}
+        \caption{Diagrama de Gantt del proyecto (2).}
+        \label{fig:gantt2}
+    \end{figure}
+\end{landscape}
+
+\subsection{Desglose de horas por grupo de tareas}
+
+A partir de las duraciones registradas en el diagrama de Gantt, y teniendo en cuenta que cada día laborable equivale a \textbf{3 horas} de trabajo (4 días a la semana, 3 horas al día), se obtiene el siguiente desglose de horas reales por grupo de tareas:
+
+\begin{table}[H]
+    \centering
+    \small
+    \begin{tabular}{p{3.8cm} p{6cm} r r}
+        \hline
+        \textbf{Grupo}                    & \textbf{Subtareas (días)}        & \textbf{Días} & \textbf{Horas (×3)} \\
+        \hline
+        T1 Estado del arte                & 45 + 20 + 15 + 20                & 100           & 300                 \\
+        T2 Backend                        & 8 + 12 + 14 + 10 + 22 + 12 + 8   & 86            & 258                 \\
+        T3 Frontend                       & 2 + 5 + 3 + 3 + 4                & 17            & 51                  \\
+        T4 Pruebas                        & 8 + 5 + 4                        & 17            & 51                  \\
+        T5 Documentación \ref{aclaracion} & 258 días, 30\,\% dedicación) + 2 & —             & 232                 \\
+        \hline
+        \textbf{Total}                    &                                  &               & \textbf{892}        \\
+        \hline
+    \end{tabular}
+    \caption{Desglose de horas reales por grupo de tareas a partir del diagrama de Gantt.}
+    \label{tab:horas_gantt}
+\end{table}
+
+\label{aclaracion}T5.1 (redacción de la memoria) es una tarea transversal que abarca 258 días laborables, pero no ocupa la jornada completa en ningún momento. Para la estimación económica se imputa únicamente un \textbf{30\,\% de dedicación media} sobre esos días: $258 \times 0{,}3 \times 3\,\text{h} \approx 232\,\text{h}$, valor más representativo del esfuerzo real de documentación.
 
 \section{Estudio económico y presupuesto}
 
+El estudio económico recoge una estimación de los costes asociados al desarrollo del proyecto, distinguiendo entre costes de personal, hardware y software.
+
+\subsection{Costes de personal}
+
+El desarrollo ha sido realizado íntegramente por el autor del proyecto, por lo que el coste de personal será calculado como las horas dedicadas, sacadas del cronograma, multiplicadas por un coste por hora estimado.
+
+El coste por hora se ha estimado tomando como referencia el informe de consulta preliminar de mercado sobre perfiles profesionales del ámbito informático publicado por la Consejería de Agricultura, Pesca y Desarrollo Rural de la Junta de Andalucía \cite{junta2018precios}. Concretamente, se ha utilizado la tarifa de la columna \textit{Media acotada todos} para el perfil \textbf{Programador/a J2EE\,/\,Web} en categoría \textbf{Junior} (menos de 6 años de experiencia), que asciende a \textbf{23,85\,€/h} sin IVA. Este perfil es el que mejor refleja las competencias aplicadas en el desarrollo de este proyecto: programación en Python, procesamiento de imagen con OpenCV y desarrollo de interfaces gráficas. Las horas por grupo de tareas vienen directamente del desglose de la tabla \ref{tab:horas_gantt}.
+
+\begin{table}[H]
+\centering
+\begin{tabular}{lrcc}
+\hline
+\textbf{Grupo de tareas} & \textbf{Horas} & \textbf{Coste (€/h)} & \textbf{Total (€)} \\
+\hline
+T1 Estado del arte y familiarización & 300 & 23,85 & 7.155,00 \\
+T2 Implementación del backend        & 258 & 23,85 & 6.153,30 \\
+T3 Implementación del frontend       & 51  & 23,85 & 1.216,35 \\
+T4 Pruebas y ajuste de parámetros    & 51  & 23,85 & 1.216,35 \\
+T5 Documentación (30\,\% dedicación) & 232 & 23,85 & 5.533,20 \\
+\hline
+\textbf{Total personal} & \textbf{892} & & \textbf{21.274,20} \\
+\hline
+\end{tabular}
+\caption{Desglose de costes de personal.}
+\label{tab:costes_personal}
+\end{table}
+
+\subsection{Costes de hardware}
+
+El desarrollo y las pruebas se han realizado exclusivamente en el ordenador personal del autor, por lo que solo se imputará el coste de amortización de los componentes del equipo.
+
+La amortización se ha calculado de forma lineal con una vida útil de
+5 años para los equipos informáticos, valor comprendido dentro del
+período máximo de amortización de 8 años establecido para este tipo
+de activos en el artículo 12.1.a) de la Ley del Impuesto sobre
+Sociedades~\cite{lis2014}.
+
+\begin{table}[H]
+\centering
+\begin{tabular}{lcccc}
+\hline
+\textbf{Recurso} & \textbf{Coste (€)} & \textbf{Vida útil (años)} & \textbf{Uso (meses)} & \textbf{Imputable (€)} \\
+\hline
+PC (Intel i7-9700F, 16\,GB RAM) & 900 & 5 & 4 & 60 \\
+GPU NVIDIA RTX 1660             & 300 & 5 & 1 &  5 \\
+\hline
+\textbf{Total hardware}         &     &   &   & \textbf{65} \\
+\hline
+\end{tabular}
+\caption{Amortización de hardware.}
+\label{tab:costes_hardware}
+\end{table}
+
+\subsection{Costes de software}
+ 
+Todas las herramientas y bibliotecas utilizadas son de código abierto o gratuitas, por lo que el coste de software es nulo:
+ 
+\begin{table}[H]
+\centering
+\begin{tabular}{lll}
+\hline
+\textbf{Herramienta} & \textbf{Licencia} & \textbf{Coste (€)} \\
+\hline
+Python 3.12          & PSF (open source) & 0 \\
+OpenCV               & Apache 2.0        & 0 \\
+NumPy, Pandas, Matplotlib & BSD          & 0 \\
+Tkinter              & Incluida en Python & 0 \\
+Visual Studio Code   & MIT               & 0 \\
+Git / GitHub         & MIT / gratuito    & 0 \\
+\hline
+\textbf{Total software} &                & \textbf{0} \\
+\hline
+\end{tabular}
+\caption{Costes de software.}
+\label{tab:costes_software}
+\end{table}
+
+\subsection{Coste total}
+ 
+\begin{table}[H]
+\centering
+\begin{tabular}{lr}
+\hline
+\textbf{Concepto} & \textbf{Coste (€)} \\
+\hline
+Personal                   & 21.274,20 \\
+Hardware (amortización)    & 65,00     \\
+Software                   & 0,00      \\
+\hline
+\textbf{Total del proyecto} & \textbf{21.339,20} \\
+\hline
+\end{tabular}
+\caption{Coste total estimado del proyecto.}
+\label{tab:coste_total}
+\end{table}
+
+Cabe destacar que el coste real para el departamento es prácticamente nulo, ya que al no requerir licencias de software ni hardware extremadamente potente, la solución se va a poder distribuir de manera completamente gratuita, a diferencia de otras herramientas comerciales cuyas licencias y hardware pueden ascender a miles de euros anuales.
+
 \section{Análisis de riesgos}
+
+A continuación se identifican los principales riesgos del proyecto, su probabilidad de ocurrencia estimada, el impacto potencial y las estrategias de mitigación adoptadas. La probabilidad e impacto se valoran en tres niveles: \textit{Baja}, \textit{Media} y \textit{Alta}.
+
+La mayoría de los riesgos identificados se materializaron en algún momento del desarrollo. Por ejemplo, el riesgo R2 se materializo en la fase de investigación, por lo que se descartó el uso de modelos de deep learning y se centraron los esfuerzos en las técnicas clásicas. El riesgo R5 se materializó en fases tardías del desarrollo, lo que provocó que se tuviera que dedicar más tiempo a la búsqueda de información sobre técnicas de tracking, hasta encontrar el método de flujo óptico de Lucas-Kanade, que se implementó sin mayor complicación.
+ 
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{p{0.3cm} p{4.2cm} p{1.5cm} p{1.3cm} p{5.5cm}}
+\hline
+\textbf{ID} & \textbf{Riesgo} & \textbf{Prob.} & \textbf{Impacto} & \textbf{Mitigación} \\
+\hline
+R1 & Las técnicas clásicas de visión no ofrecen suficiente precisión en gotas muy pequeñas o desenfocadas & Alta & Alto & Ajuste fino de parámetros por vídeo; asumir la limitación y documentarla en la sección de resultados \\
+\hline
+R2 & Los modelos de deep learning evaluados (SAM) no son viables en el hardware del departamento & Media & Medio & Descartarlos y concentrar el esfuerzo en la solución clásica; documentar la evaluación en el marco teórico \\
+\hline
+R3 & Los investigadores tienen dificultades para ajustar los parámetros de segmentación & Media & Medio & Implementar la funcionalidad ``Frames Diagnóstico'' para visualizar el efecto de los parámetros sin ejecutar el pipeline completo \\
+\hline
+R4 & Pérdida de código o de progreso por fallo del equipo & Baja & Alto & Uso de Git con repositorio remoto en GitHub como copia de seguridad continua \\
+\hline
+R5 & El tracker genera identidades duplicadas en vídeos con muchas gotas solapadas & Media & Medio & Incorporar flujo óptico de Lucas-Kanade como predictor de posición para mejorar la robustez de la asignación \\
+\hline
+\end{tabular}
+\caption{Tabla de análisis de riesgos del proyecto.}
+\label{tab:riesgos}
+\end{table}
+
