@@ -4,7 +4,7 @@
 
 \section{Metodología de desarrollo}
 
-El desarrollo de este proyecto ha seguido una textbf{metodología iterativa e incremental}, basada en los principios ágiles del desarrollo de software. Se ha decidido adoptar esta metodología en lugar de un enfoque clásico en cascada debido al tipo de proyecto ante el que nos encontramos, que al ser de carácter exploratorio, requiere una gran flexibilidad que permita ir validando hipótesis en cada iteración para ir ajustando el rumbo del desarrollo. Además, al comenzar el proyecto, se tenía claro el objetivo al que se quería llegar, pero no el camino a seguir para alcanzarlo, por este motivo, una metodología en casada no habría sido viable por la rigidez e intolerancia al cambio por la que se caracteriza.
+El desarrollo de este proyecto ha seguido una textbf{metodología iterativa e incremental}, basada en los principios ágiles del desarrollo de software \cite{beck2001agile}. Se ha decidido adoptar esta metodología en lugar de un enfoque clásico en cascada debido al tipo de proyecto ante el que nos encontramos, que al ser de carácter exploratorio, requiere una gran flexibilidad que permita ir validando hipótesis en cada iteración para ir ajustando el rumbo del desarrollo. Además, al comenzar el proyecto, se tenía claro el objetivo al que se quería llegar, pero no el camino a seguir para alcanzarlo, por este motivo, una metodología en casada no habría sido viable por la rigidez e intolerancia al cambio por la que se caracteriza.
 
 El proyecto se ha planteado con textbf{ciclos cortos de desarrollo} de una o dos semanas de duración, según la dificultad de los obetivos marcados y la carga lectiva de ese periodo, cada uno de ellos estructurado de la siguiente manera:
 
@@ -23,17 +23,146 @@ Para gestionar todo el código desarrollado, se ha utilizado Git y GitHub \cite{
 
 En esta sección se detallarán los requisitos funcionales y no funcionales que se han identificado para el proyecto, fruto de las reuniones con los tutores y del desglose del flujo de trabajo actual del análisis manual de los experimentos del departamento.
 
+En ingeniería de software, se distinguen, principalmente, dos categorías de requisitos principales \cite{sommerville2016}: los \textbf{requisitos funcionales}, que distinguen qué debe hacer el sistema, es decir, las funciones, comportamientos y servicios concretos que tiene que ofrecer la solución implementada; y los \textbf{requisitos no funcionales}, que describen cómo deber ser el sistema, es decir, restricciones sobre calidad, usabilidad, portabilidad o rendimiento, entre otras propiedades que no corresponden a una funcionalidad concreta, pero que determinan igualmente el éxito del proyecto.
+
 \subsection{Requisitos funcionales}
+
+Los requisitos funcionales definen las capacidades que el sistema debe proporcionar al usuario. En este proyecto se han identificado los siguientes:
+
+\begin{itemize}
+    \item \textbf{RF-01 Carga de vídeo:} El sistema debe permitir cargar vídeos de alta velocidad en los formatos AVI, MP4, MOV y MKV.
+    \item \textbf{RF-02 Calibración espacial:} El sistema debe permitir establecer una factor de conversión píxel-unidad real para poder representar las mediciones en dichas unidades.
+    \item \textbf{RF-03 Calibración temporal:} El sistema debe permitir configurar la tasa de frames de adquisición del vídeo, obviando los metadatos del mismo. Esto es crucial para el cálculo de la velocidades.
+    \item \textbf{RF-04 Preprocesamiento configurable:} El sistema debe implementar el método de estiramiento de percentiles como mejora del contraste, ya que es el método al que los investigadores están acostumbrado a usar, si se implementa otro método, se debe permitir configurar el método a usar.
+    \item \textbf{RF-05 Segmentación de gotas:} El sistema debe segmentar automáticamente las gotas, para su posterior análisis.
+    \item \textbf{RF-06 Filtrado de detecciones:} El sistema tiene que implementar un filtrado de detecciones para eliminar falsos positivos, ya que, en muchos vídeos, hay artefactos que pueden ser detectados erróneamente como gotas, como por ejemplo, el marco circular del objetivo de la cámara.
+    \item \textbf{RF-07 Tracking de gotas:} El sistema debe implementar un método que permita seguir las gotas a lo largo de los frames, para poder calcular trayectorias y velocidades.
+    \item \textbf{RF-08 Cálculo de métricas:} El sistema debe calcular las siguiente métricas para cada gota detectada: diámetro, área, centroide, velocidad, diámetro equivalente, circularidad, perímetro y trayectoria.
+    \item \textbf{RF-09 Exportación de datos:} El sistema debe permitir exportar los datos del análisis en formato CSV, permitiendo su posterior análisis por parte de los investigadores con herramientas como Excel o Python.
+    \item \textbf{RF-10 Generación de gráficas:} El sistema debe generar un conjunto de gráficas en formato PNG al finalizar el análisis, junto con los datos de cada eje en formato CSV, para permitir que los investigadores puedan editar las gráficas facilmente con otras herramientas como Excel o Python.
+    \item \textbf{RF-11 Vídeo de salida:} El sistema debe generar un vídeo en el que se superpongan las detecciones y trayectorias sobre el vídeo original, para poder validar visualmente los resultados.
+    \item \textbf{RF-12 Frames de diagnóstico:} El sistema debe permitir previsualizar el resultado del preprocesamiento y la binarización sobre el primer fotograma sin necesidad de ejecutar el análisis completo.
+    \item \textbf{RF-13 Previsualización en tiempo real:} Durante el procesamiento, el sistema debe mostrar en una ventana flotante los fotogramas original, preprocesado, binarizado y con tracking superpuesto.
+    \item \textbf{RF-14 Cancelación del análisis:} El sistema debe permitir detener el procesamiento de forma segura en cualquier momento.
+    \item \textbf{RF-15 Interfaz gráfica de usuario:} El sistema debe contar con una interfaz gráfica de usuario intuitiva y fácil de usar, que permita a los investigadores configurar los parámetros del análisis y visualizar los resultados de forma clara, ya que los investigadores no tienen por que tener conocimientos avanzados de informática y programación.
+\end{itemize}
 
 \subsection {Requisitos no funcionales}
 
+Los requisitos no funcionales establecen las restricciones de calidad que debe satisfacer el sistema en su conjunto, independientemente de las funciones que realice. Para este proyecto se han identificado los siguientes:
+
+\begin{itemize}
+    \item \textbf{RNF-01 Usabilidad:} La interfaz gráfica debe ser intuitiva y accesible para investigadores sin conocimientos de programación. Todos los parámetros deben poder ajustarse sin editar código.
+    \item \textbf{RNF-02 Portabilidad:} La solución debe poder ejecutarse en  Windows sin la necesidad de instalar ninguna dependencia adicional, debe distribuirse como ejecutable (.exe).
+    \item \textbf{RNF-03 Arquitectura modular:} El sistema debe ser modular, permitiendo así la integración de nuevas funcionalidades de manera sencilla; y facilitando el mantenimiento y escalabilidad del sistema. Cada fase del pipeline de análisis debe ser implementada como un módulo independiente, que reciba una entrada del módulo anterior y entregue una salida al siguiente módulo.
+    \item \textbf{RNF-04 Rendimiento:} la interfaz no se debe bloquear durante el procesamiento. El sistema no tiene que ser en tiempo real, pero debe mostrar el progreso del análisis al usuario.
+    \item \textbf{RNF-05 Código abierto:} La solución debe basarse exclusivamente en bibliotecas de código abierto, sin dependencias de software comercial o con licencias restrictivas. Esto es clave para garantizar el acceso gratuito a la herramienta por parte de la comunidad científica.
+    \item \textbf{RNF-06 Reproducibilidad:} Dado el mismo vídeo y los mismos parámetros, el sistema debe producir siempre los mismos resultados.
+\end{itemize}
+
+
 \section{Alcance del proyecto}
+
+El alcance de este proyecto comprende el diseño, implementación, validación y documentación de una herramienta de escritorio que segmente, siga y analice automáticamente las gotas de los vídeos de alta velocidad adquiridos en experimentos de nebulización e inyección. A continuación, se detallarán los límites y exclusiones del proyecto.
+
+\subsection{Elementos contemplados}
+
+\begin{itemize}
+    \item Desarrollo completo del pipeline de procesamiento de imagen (preprocesamiento, segmentación, filtrado, tracking y exportación).
+    \item Desarrollo de la interfaz gráfica de usuario con todos los controles necesarios para configurar y ejecutar el análisis.
+    \item Generación automática de gráficas estadísticas y ficheros CSV con los resultados.
+    \item Evaluación y descarte motivado de técnicas alternativas basadas en aprendizaje profundo (SAM).
+    \item Manual de usuario.
+    \item Ejecutable para Windows ( .exe ).
+\end{itemize}
+
+\subsection{Elementos excluidos}
+
+\begin{itemize}
+    \item \textbf{EX-01 Análisis de resultados de experimentos:} El análisis de los resultados físicos de los experimentos de nebulización (esto corresponde al dominio de los investigadores del departamento).
+    \item \textbf{EX-02 Versión web o multiplataforma:} El desarrollo no incluye una versión web o móvil de la herramienta, se centra exclusivamente en una aplicación de escritorio para Windows.
+    \item \textbf{EX-03 Integración con el sistema de adquisición de vídeo:} No se contempla la integración en el pipeline de adquisición, los vídeos tendrán que ser cargados manualmente por los investigadores en la aplicación.
+    \item \textbf{EX-04 Creación de un dataset de entrenamiento:} No se contempla la creación de un dataset de segmentación para entrenar o reentrenar modelos de deep learning. Esto es debido a la gran cantidad de tiempo que se requeriría para el etiquetado manual de las gotas.
+\end{itemize}
+
 
 \section{Hitos}
 
+Para este proyecto se han definido los siguientes hitos, que marcan la finalización de las etapas principales del diseño y desarrollo del analizador:
+
+\begin{itemize}
+    \item \textbf{H-01 Inicio del proyecto (03/03/2025):} Comienzo formal del desarrollo, establecimiento del entorno de trabajo (Python, OpenCV, Git) y análisis de los primeros vídeos de muestra proporcionados por el departamento.
+    \item \textbf{H-02 Definición del marco teórico y aproximación al problema (31/08/2025):} Investigación sobre las técnicas de procesamiento de imágenes y visión por computador. Estudiar si enfocar el desarrollo en técnicas clásicas o modelos de deep learning. Básicamente, adquirir los conocimientos necesarios para implementar una solución fundamentada y eficaz.
+    \item \textbf{H-03 Pipeline básico y funcional (30/11/2025):} Implementación básica del pipeline de preprocesado, segmentación, mediciones y exportación. Sin interfaz gráfica ni tracking, pero con un flujo de trabajo funcional que permita procesar vídeos y obtener resultados.
+    \item \textbf{H-04 Interfaz gráfica de usuario (31/12/2025):} Desarrollo de una primera versión de la interfaz gráfica, que permita ejecutar el pipeline básico de análisis desde una aplicación de escritorio.
+    \item \textbf{H-05 Implementación del tracking (28/02/2026):} Integrar el tracking y la medición de velocidades en el pipeline.
+    \item \textbf{H-06 Pruebas y ajustes finales (31/03/2026):} Probar el sistema para validar que cumple los requisitos y objetivos marcados, ajustar parámetros y corregir errores.
+    \item \textbf{H-07 Memoria y entrega final (27/05/2026):} Redacción de la memoria del proyecto y entrega final de la aplicación.
+\end{itemize}
+
 \section{Desglose de tareas (EDT)}
 
+La \textbf{Estructura de Desglose del Trabajo} (EDT, o \textit{Work Breakdown Structure} en inglés) es una herramienta de gestión de proyectos que descompone el trabajo total en unidades más pequeñas y manejables, organizadas de forma jerárquica \cite{pressman2014}. El objetivo de la EDT no es describir \textit{cómo} se realiza el trabajo, sino \textit{qué} hay que hacer. Esta descomposición facilita la estimación del esfuerzo y el seguimiento del avance a lo largo del desarrollo.
+
+En este proyecto la EDT se ha estructurado en tres niveles: el nivel raíz representa el proyecto en su conjunto, el segundo nivel agrupa el trabajo en cinco bloques funcionales (T1-T5) y el tercer nivel desglosa cada bloque en subtareas concretas y acotadas. La Figura~\ref{fig:edt} muestra el árbol de desglose completo, donde puede apreciarse que el grupo T2 (\textit{Backend}) es el de mayor número de subtareas, lo que refleja que el pipeline de procesamiento de imagen es la parte más extensa y compleja del desarrollo.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth]{figures/edt.png}
+    \caption{Estructura de Desglose del Trabajo (EDT) del proyecto.}
+    \label{fig:edt}
+\end{figure}
+
+A continuación, se describirán con más detalle cada una de los bloques y sus subtareas.
+
+\subsection{T1: Estudio del estado del arte}
+
+\begin{itemize}
+    \item \textbf{T1.1} Revisión bibliográfica de técnicas de procesamiento de imágenes digitales.
+    \item \textbf{T1.2} Análisis de herramientas comerciales existentes (LaVision, Dantec Dynamics) e identificación de sus limitaciones.
+    \item \textbf{T1.3} Exploración de técnicas de deep learning (SAM) y evaluación de su viabilidad para este proyecto en concreto.
+    \item \textbf{T1.4} Familiarización con OpenCV y las librerías de Python necesarias para el análisis de imágenes y visión por computador.
+\end{itemize}
+
+\subsection{T2: Desarrollo del backend}
+\begin{itemize}
+    \item \textbf{T2.1} Diseño de la arquitectura modular del pipeline y de la clase \texttt{DropletAnalyzer}.
+    \item \textbf{T2.2} Módulo de preprocesamiento: escala de grises, mejora de contraste y reducción de ruido.
+    \item \textbf{T2.3} Módulo de segmentación: umbralización adaptativa gaussiana y operaciones morfológicas (apertura y cierre).
+    \item \textbf{T2.4} Módulo de filtrado y medición: filtros de área y circularidad, cálculo de centroide, diámetro equivalente, redondez y bounding box.
+    \item \textbf{T2.5} Módulo de tracking: flujo óptico de Lucas-Kanade combinado con asignación greedy por distancia euclídea mínima.
+    \item \textbf{T2.6} Módulo de cálculo de velocidades.
+    \item \textbf{T2.7} Módulo de exportación de resultados a CSV y generación de gráficas (\texttt{DropletPlotter}).
+\end{itemize}
+
+\subsection{T3: Desarrollo del frontend}
+\begin{itemize}
+    \item \textbf{T3.1} Diseño de la arquitectura de la interfaz gráfica con Tkinter y definición de los controles de cada parámetro.
+    \item \textbf{T3.2} Implementación de la ventana principal: las seis secciones, sliders con campos de entrada y botones de reset.
+    \item \textbf{T3.3} Implementación del sistema de hilos (\texttt{threading}) y colas (\texttt{queue}) para desacoplar procesamiento e interfaz.
+    \item \textbf{T3.4} Implementación de la ventana flotante de previsualización en tiempo real con los cuatro paneles.
+    \item \textbf{T3.5} Integración del frontend con el backend a través de la API pública de \texttt{DropletAnalyzer} y \texttt{DropletPlotter}.
+\end{itemize}
+
+\subsection{T4: Pruebas y ajuste de parámetros}
+\begin{itemize}
+    \item \textbf{T4.1} Pruebas sobre los vídeos reales de los experimentos con nebulizadores.
+    \item \textbf{T4.2} Ajuste iterativo de los valores por defecto de los parámetros para cubrir la mayor variedad posible de condiciones de grabación.
+    \item \textbf{T4.3} Validación visual del tracking comparando el vídeo de salida con los fotogramas originales.
+\end{itemize}
+
+\subsection{T5: Documentación}
+\begin{itemize}
+    \item \textbf{T5.1} Redacción de la memoria del TFG.
+    \item \textbf{T5.2} Elaboración del manual de usuario (\ref{cap:manual_usuario}).
+\end{itemize}
+
 \section{Planificación temporal}
+
+La planificación temporal recoge la distribución en el tiempo de las tareas definidas en la EDT y los hitos del proyecto. Para su elaboración se ha utilizado \textbf{Microsoft Project} \cite{microsoft_project}, herramienta estándar en la gestión de proyectos que permite construir diagramas de Gantt, asignar duraciones y dependencias entre tareas, y visualizar la ruta crítica del proyecto. El diagrama resultante se muestra en la Figura.
+ 
+Dado que la metodología adoptada es iterativa, la planificación no es completamente lineal: algunas tareas se solapan en el tiempo o se retoman en iteraciones posteriores a medida que los resultados de las pruebas orientan el desarrollo. No obstante, el diagrama de Gantt refleja una estimación razonable de la dedicación real a cada grupo de tareas a lo largo del periodo de desarrollo del proyecto.
+
 
 \section{Estudio económico y presupuesto}
 
