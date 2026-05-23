@@ -1,0 +1,8 @@
+TP,FP,FN,precision,recall,F1,MRE_diam,RMSE_diam,MRE_area,circ_mean,circ_std,round_mean,round_std,MRE_vel,RMSE_vel,note,n_gt_tracks,n_det_tracks,frag_rate,tag,experiment,diameter_px,n_droplets
+120,0,0,1.0,1.0,1.0,0.6232,3.7395,1.6349,0.8612,0.0058,0.9648,0.012,,,"static droplets, no velocity GT",4,4,0.0,E1_diam006px,E1,6,4
+120,0,0,1.0,1.0,1.0,0.3912,3.9116,0.9353,0.8786,0.0,0.9535,0.0,,,"static droplets, no velocity GT",4,4,0.0,E1_diam010px,E1,10,4
+120,0,0,1.0,1.0,1.0,0.2372,3.5585,0.5307,0.9003,0.0174,0.9862,0.0034,,,"static droplets, no velocity GT",4,4,0.0,E1_diam015px,E1,15,4
+120,0,0,1.0,1.0,1.0,0.1919,3.8379,0.4206,0.8774,0.0107,0.9875,0.0042,,,"static droplets, no velocity GT",4,4,0.0,E1_diam020px,E1,20,4
+120,0,0,1.0,1.0,1.0,0.1293,3.8796,0.2754,0.8579,0.0005,0.9953,0.0004,,,"static droplets, no velocity GT",4,4,0.0,E1_diam030px,E1,30,4
+120,0,0,1.0,1.0,1.0,0.0964,3.856,0.2021,0.8962,0.0013,0.9968,0.0016,,,"static droplets, no velocity GT",4,4,0.0,E1_diam040px,E1,40,4
+120,0,0,1.0,1.0,1.0,0.0773,3.8665,0.1606,0.8793,0.0242,0.9966,0.0004,,,"static droplets, no velocity GT",4,4,0.0,E1_diam050px,E1,50,4

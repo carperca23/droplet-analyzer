@@ -1,0 +1,17 @@
+TP,FP,FN,precision,recall,F1,MRE_diam,RMSE_diam,MRE_area,circ_mean,circ_std,round_mean,round_std,MRE_vel,RMSE_vel,note,n_gt_tracks,n_det_tracks,frag_rate,tag,experiment,diameter_px
+24,0,6,1.0,0.8,0.8889,1.7895,5.3755,6.7898,0.7134,0.1203,0.854,0.0587,,,"static droplets, no velocity GT",1,1,0.0,E4_diam003px,E4,3
+28,0,2,1.0,0.9333,0.9655,1.3523,5.4158,4.5377,0.7291,0.0886,0.8618,0.0361,,,"static droplets, no velocity GT",1,1,0.0,E4_diam004px,E4,4
+29,0,1,1.0,0.9667,0.9831,1.0795,5.4001,3.3255,0.6876,0.0843,0.8753,0.0354,,,"static droplets, no velocity GT",1,1,0.0,E4_diam005px,E4,5
+29,0,1,1.0,0.9667,0.9831,0.9145,5.4895,2.6661,0.6943,0.0956,0.8831,0.0397,,,"static droplets, no velocity GT",1,1,0.0,E4_diam006px,E4,6
+29,0,1,1.0,0.9667,0.9831,0.6841,5.4761,1.8367,0.687,0.0896,0.9048,0.0274,,,"static droplets, no velocity GT",1,1,0.0,E4_diam008px,E4,8
+27,0,3,1.0,0.9,0.9474,0.5446,5.45,1.3861,0.6736,0.0808,0.92,0.0194,,,"static droplets, no velocity GT",1,1,0.0,E4_diam010px,E4,10
+29,0,1,1.0,0.9667,0.9831,0.4501,5.4048,1.103,0.7042,0.0886,0.9351,0.0227,,,"static droplets, no velocity GT",1,1,0.0,E4_diam012px,E4,12
+29,0,1,1.0,0.9667,0.9831,0.3669,5.5068,0.8686,0.683,0.0771,0.9425,0.0198,,,"static droplets, no velocity GT",1,1,0.0,E4_diam015px,E4,15
+30,0,0,1.0,1.0,1.0,0.2783,5.5706,0.6341,0.7238,0.0693,0.9608,0.0125,,,"static droplets, no velocity GT",1,1,0.0,E4_diam020px,E4,20
+30,0,0,1.0,1.0,1.0,0.2221,5.5545,0.4936,0.736,0.0815,0.9682,0.0129,,,"static droplets, no velocity GT",1,2,1.0,E4_diam025px,E4,25
+30,0,0,1.0,1.0,1.0,0.1855,5.5677,0.4054,0.7847,0.0684,0.9779,0.0101,,,"static droplets, no velocity GT",1,2,1.0,E4_diam030px,E4,30
+30,0,0,1.0,1.0,1.0,0.1415,5.6628,0.303,0.7949,0.0456,0.986,0.0051,,,"static droplets, no velocity GT",1,2,1.0,E4_diam040px,E4,40
+30,0,0,1.0,1.0,1.0,0.1122,5.612,0.237,0.8282,0.0552,0.9883,0.0056,,,"static droplets, no velocity GT",1,2,1.0,E4_diam050px,E4,50
+30,0,0,1.0,1.0,1.0,0.0924,5.546,0.1933,0.8356,0.0397,0.9909,0.0045,,,"static droplets, no velocity GT",1,2,1.0,E4_diam060px,E4,60
+30,0,0,1.0,1.0,1.0,0.0784,5.4866,0.1629,0.8389,0.0331,0.9927,0.0026,,,"static droplets, no velocity GT",1,2,1.0,E4_diam070px,E4,70
+30,0,0,1.0,1.0,1.0,0.0699,5.5959,0.1448,0.8376,0.028,0.9939,0.0026,,,"static droplets, no velocity GT",1,2,1.0,E4_diam080px,E4,80

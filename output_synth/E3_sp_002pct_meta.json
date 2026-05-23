@@ -1,0 +1,6 @@
+{
+  "experiment": "E3",
+  "noise_type": "salt_pepper",
+  "sp_fraction": 0.02,
+  "diameter_px": 20.0
+}

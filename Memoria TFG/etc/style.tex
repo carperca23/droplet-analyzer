@@ -127,6 +127,24 @@
   alsoletter={:},
   alsodigit={-}
 }
+
+\lstset{
+    extendedchars=true,
+    literate=
+      {á}{{\'a}}1
+      {é}{{\'e}}1
+      {í}{{\'i}}1
+      {ó}{{\'o}}1
+      {ú}{{\'u}}1
+      {ñ}{{\~n}}1
+      {Á}{{\'A}}1
+      {É}{{\'E}}1
+      {Í}{{\'I}}1
+      {Ó}{{\'O}}1
+      {Ú}{{\'U}}1
+      {Ñ}{{\~N}}1
+}
+
 % JavaScript
 \lstdefinelanguage{javascript}{
   morekeywords={abstract, arguments, await, boolean, break, byte, case, catch, char, class, const, continue, debugger, default, delete, do, double, else, enum, eval, export, extends, false, final, finally, float, for, function, goto, if, implements, import, in, instanceof, int, interface, let, long, native, new, null, package, private, protected, public, return, short, static, super, switch, synchronized, this, throw, throws, transient, true, try, typeof, var, void, volatile, while, with, yield},
@@ -134,4 +152,23 @@
   morecomment=[l]//,
   morestring=[b]",
   morestring=[b]'
+}
+
+% Python
+\lstdefinelanguage{python}{
+  morekeywords={and, as, assert, async, await, break, class, continue, def, del, elif, else, except, False, finally, for, from, global, if, import, in, is, lambda, None, nonlocal, not, or, pass, raise, return, True, try, while, with, yield, print, self},
+  morecomment=[l]{\#},
+  morestring=[b]",
+  morestring=[b]',
+  morestring=[s]{"""}{"""}, 
+  morestring=[s]{'''}{'''}
+}
+
+% Bash
+\lstdefinelanguage{bash}{
+  morekeywords={alias, bg, bind, break, builtin, caller, case, cd, command, compgen, complete, continue, declare, dirs, disown, do, done, echo, elif, else, enable, esac, eval, exec, exit, export, fc, fg, fi, for, function, getopts, hash, help, history, if, in, jobs, kill, let, local, logout, popd, printf, pushd, pwd, read, readonly, return, select, set, shift, shopt, source, suspend, test, then, times, trap, type, typeset, ulimit, umask, unalias, unset, until, wait, while},
+  morecomment=[l]{\#},
+  morestring=[b]",
+  morestring=[b]',
+  morestring=[b]` 
 }
