@@ -82,6 +82,10 @@ Una vez cargado el vídeo, hay que convertir los píxeles a unidades reales y aj
     \caption{Panel de calibración.}
 \end{figure}
 
+Cabe destacar que el factor de conversión depende del objetivo(zoom) con el que se haya grabado el vídeo, por lo que deberá recalibrarse para cada combinación de zoom y distancia al inyector utilizada en el experimento.
+
+\textbf{Nota:} El campo \textbf{Unidad} es puramente descriptivo y no implica ninguna conversión automática. El usuario debe asegurarse de que el factor numérico introducido sea coherente con la unidad indicada y con el zoom utilizado durante la grabación.
+
 \subsection{Paso 3: Nombres de archivos de salida}
 
 En esta sección (Panel 3) se personalizan los nombres base de todos los ficheros que la
@@ -108,12 +112,12 @@ En la figura \ref{fig:parametros} se muestra el panel de configuración de pará
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=1\textwidth]{figures/manual_usuario/parametros.png}
+    \includegraphics[width=0.85\textwidth]{figures/manual_usuario/parametros.png}
     \caption{Panel de configuración de parámetros de procesamiento.}
     \label{fig:parametros}
 \end{figure}
 
-subsection{Paso 5: Procesamiento}
+\subsection{Paso 5: Procesamiento}
 
 La ejecución del procesamiento se controla desde el panel 5. Para iniciar el procesamiento hay que pulsar el botón \textbf{Analizar Todo}. Esto analizará el vídeo completo, generando todos lo archivos de salida en la carpeta \texttt{output/}.
 Antes de lanzar el procesamiento, podemos desactivar el checkbox \textbf{Mostrar líneas de tracking de vídeo} para que en el vídeo de salida no se pinten las trazas del seguimiento de las gotas.

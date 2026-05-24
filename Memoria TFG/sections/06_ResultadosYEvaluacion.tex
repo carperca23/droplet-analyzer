@@ -1,6 +1,6 @@
 % LTeX: language=es
 
-\chapter{Resultados y Evaluación}
+\chapter{Resultados y Evaluación} \label{chap:resultados}
 
 En este capítulo se presentan los resultados del analizador implementado. La evaluación se ha dividido en dos partes complementarias: una evaluación \textbf{cualitativa}, en la que se analiza el desempeño de la aplicación sobre vídeos reales de experimentos; y una evaluación \textbf{cuantitativa}, en la que se analiza el error cometido por el analizador con respecto al ground truth de un conjunto de vídeos generados sintéticamente.
 
@@ -28,7 +28,7 @@ python plot_experiment.py E4 --metrics_csv results/E4_metrics.csv --dpi 300 --sh
 
 \subsection{Métricas de evaluación}
 
-El evaluador calcula las siguientes métricas para cada vídeo analizado. El emparejamiento entre detecciones y gotas GT se realiza por distancia euclídea mínima entre centroides, con un umbral máximo de 15px:
+El evaluador calcula las siguientes métricas \cite{powers2011evaluation}\cite{everingham2010pascal} para cada vídeo analizado. El emparejamiento entre detecciones y gotas GT se realiza por distancia euclídea mínima entre centroides, con un umbral máximo de 15px:
 
 \begin{itemize}
     \item \textbf{Precisión, Recall y F1:} Miden la tasa de detecciones correctas respecto al total de gotas presentes (GT) y al total de detecciones realizadas. Una detección se considera correcta si su centroide se encuentra a menos de 15~px del centroide GT más cercano.

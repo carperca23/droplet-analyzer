@@ -10,15 +10,15 @@ En este capítulo se realiza una revisión de la literatura y el contexto en el 
 
 En este apartado se va a realizar una breve introducción a los sprays, nebulizadores y la técnica de Flow Blurring, que son el contexto en el que se enmarca este trabajo. Se explicará qué son, cómo funcionan y por qué es importante su estudio en el ámbito de la física de fluidos y la microfluídica.
 
-Un \textbf{spray} es un flujo disperso de fase líquida en fase gaseosa, formado por un conjunto de gotas transportadas por el gas, si dichas gotas son finas y estables en suspensión, se denomina \textbf{aerosol}. Los sprays se encuentran en una amplia variedad de aplicaciones, desde la agricultura (aspersores), la medicina (nebulizadores) hasta la industria (inyección de combustible en motores, recubrimiento de superficies). La caracterización de los sprays es fundamental para optimizar su rendimiento y eficiencia, así como para comprender los procesos físicos que ocurren durante su formación y evolución.
+Un \textbf{spray} es un flujo disperso constituido por una fase líquida distribuida en forma de gotas dentro de una fase gaseosa. Cuando estas gotas son suficientemente finas y permanecen estables en suspensión, el sistema suele denominarse \textbf{aerosol}. Los sprays se encuentran en una amplia variedad de aplicaciones, desde la agricultura (aspersores), la medicina (nebulizadores) hasta la industria (inyección de combustible en motores, recubrimiento de superficies). La caracterización de los sprays es fundamental tanto para comprender los mecanismos físicos que gobiernan su formación y evolución como para mejorar las prestaciones de los sistemas en los que intervienen.
 
-Un \textbf{nebulizador} es un dispositivo que transforma un líquido en un aerosol mediante la aplicación de energía, ya sea a través de un flujo de gas, ultrasonidos o vibraciones mecánicas. En la nebulización neumática, el gas aporta energía cinética al líquido, provocando perturbaciones y turbulencias sobre la superficie del líquido, lo que acaba provocando la rotura y formación de gotas. Cabe destacar que este proceso no asegura la esfericidad de las gotas formadas, ya que si el líquido es viscoso se pueden formar filamentos. Por este motivo se descartan el uso de técnicas que asumen la esfericidad de las gotas (p. ej., difracción láser) y se opta por técnicas de visión por computador, que permiten detectar y caracterizar las gotas independientemente de su forma.
+Un \textbf{nebulizador} es un dispositivo que transforma un líquido en un aerosol mediante la aplicación de energía, ya sea a través de un flujo de gas (neumática), ultrasonidos o vibraciones mecánicas. En la nebulización neumática, el gas transfiere energía cinética al líquido, generando perturbaciones e inestabilidades en su superficie que pueden conducir a la rotura del chorro o de las estructuras líquidas y, en consecuencia, a la formación de gotas. Este proceso no garantiza que las estructuras generadas sean esféricas, ya que en líquidos suficientemente viscosos o con comportamiento no newtoniano pueden aparecer filamentos, ligamentos u otras formas alargadas. Por este motivo, en ocasiones, se descartan el uso de técnicas que asumen la esfericidad de las gotas (p. ej., difracción láser) y se opta por técnicas de visión por computador, que permiten detectar y caracterizar las gotas independientemente de su forma.
 
 \subsection{Flow Blurring}
 
-El nebulizador neumático que se usa en los experimentos analizados en este trabajo son del tipo \textbf{Flow Blurring \cite{ganan2005enhanced}}, desarrollado a partir de 2005 por Gañan Calvo y su grupo de investigación.
+El nebulizador neumático que se usa en los experimentos analizados en este trabajo son del tipo \textbf{Flow Blurring \cite{ganan2005enhanced}}, desarrollado a partir de 2005 por Gañán Calvo y su grupo de investigación.
 
-La idea física de este tipo de inyector es que la rotura del líquido se produce dentro del inyector por la interacción intensa gas–líquido, que genera recirculación y turbulencia capaces de vencer las fuerzas cohesivas (viscosidad y tensión superficial), formando gotas o filamentos según sean las condiciones. 
+La base física de este tipo de inyector es que la rotura del líquido tiene lugar en gran medida en el interior del dispositivo, como consecuencia de la intensa interacción gas-líquido. Esta interacción genera recirculación, altas tasas de cizalla e inestabilidades interfaciales que favorecen la fragmentación del líquido cuando las fuerzas aerodinámicas superan los efectos estabilizadores de la viscosidad y la tensión superficial \cite{modesto2019flowblurring} \cite{hermosin2019flowblurring}.
 
 \begin{figure}[h] 
     \centering
@@ -27,13 +27,13 @@ La idea física de este tipo de inyector es que la rotura del líquido se produc
     \label{fig:inyectorEsquema}
 \end{figure}
 
-Como se puede observar en la figura \ref{fig:inyectorEsquema}, la geometría se caracteriza con dos magnitudes: la altura $H$ y el diámetro $D$. La relación entre ambas, $\phi = \dfrac{H}{D}$, es un parámetro clave que determina el régimen de nebulización, Flow Focusing o Flow Blurring. Los nebulizadores Flow Blurring poseen una relación $\phi$ menor que $0.5$.
+Como se puede observar en la figura \ref{fig:inyectorEsquema}, la aparición del régimen Flow Blurring depende en gran medida de un factor geométrico ligado a la posición relativa entre la salida del conducto de líquido y el orificio de descarga. Para describir esta geometría se introducen dos magnitudes características, la altura H y el diámetro D, cuya relación, $\phi = \dfrac{H}{D}$, se emplea como parámetro adimensional de diseño. Este parámetro resulta fundamental para distinguir entre los regímenes Flow Focusing y Flow Blurring, ya que controla el grado de interacción gas-líquido dentro del inyector.
 
-En este tipo de nebulizador neumático, el spray se controla típicamente con presiones ycaudales de gas y líquido. Existe una transferencia de energía (para una presión de gas fija) que se traduce en una presión mínima de líquido capaz de sostener una atomización estable; fuera de esa “ventana” puede aparecer desde spray poco saturado hasta chorro líquido.
+En este tipo de nebulizador neumático, la interacción gas-líquido y, en consecuencia, el régimen de atomización y las características del spray generado, se controlan típicamente mediante las presiones y los caudales de gas y de líquido. Existe una transferencia de energía (para una presión de gas fija) que se traduce en una presión mínima de líquido capaz de sostener una atomización estable; fuera de esa “ventana” puede aparecer desde spray poco saturado hasta chorro líquido.
 
 \subsection{Obtención de los vídeos de alta velocidad}
 
-Para conseguir captar información de tamaño y velocidades de las gotas se necesita una gran resolución espacial y temporal. Para ello es necesario el uso de cámaras de alta velocidad, en el caso de los experimentos analizados, se ha utilizado una Shimadzu HPV-2 capaz de grabar a 1 millón de fotogramas por segundo (fps). Durante los experimentos se realizan grabaciones cortas de unos 120 frames, variando los intervalos temporales entre frames ($1\mu s$, $2\mu s$, $4\mu s$, ...) y el zoom.
+Para obtener información de tamaño y velocidades de las gotas se necesita una gran resolución espacial y temporal. Para ello es necesario el empleo de cámaras de alta velocidad. En los experimentos analizados se utilizó una Shimadzu HPV-2, operando habitualmente a 1 millón fps, lo que corresponde a una resolución temporal de 1 $\mu s$ entre fotogramas. En algunos casos también se utilizaron frecuencias de adquisición menores, con el consiguiente aumento del tiempo entre imágenes, cuando la dinámica observada permitía una resolución temporal más baja. Durante los ensayos se registraron secuencias cortas, de aproximadamente 120 fotogramas, ajustando tanto la frecuencia de adquisición como el nivel de zoom.
 
 Al aumentar la velocidad de grabación y el zoom, se reduce la cantidad de luz que llega al sensor, lo que hace necesario el uso de un flash de alta intensidad.
 
@@ -47,10 +47,10 @@ El procedimiento de adquisición de los vídeos es el siguiente:
 
 \vspace*{0,7cm}
 
-\begin{figure}[h] 
+\begin{figure}[H] 
     \centering
-    \includegraphics[width=0.8\textwidth]{figures/Exp.png}
-    \caption{Montaje experimental para la adquisición de vídeos de alta velocidad.}
+    \includegraphics[width=0.7\textwidth]{figures/Exp.png}
+    \caption{Montaje experimental para la adquisición de vídeos de alta velocidad \cite{doi:10.1021/acsomega.8b02542}.}
     \label{fig:montajeExperimental}
 \end{figure}
 
@@ -101,13 +101,13 @@ La idea detrás de la mejora del contraste es aumentar la diferencia entre las i
 
 \textbf{Ecualización Adaptativa del Histograma con Contraste Limitado (CLAHE):} La ecualización global del histograma puede amplificar el ruido en regiones uniformes, ya que un histograma muy concentrado en pocos valores se estira de forma agresiva al redistribuirse. Por eso, la idea principal de CLAHE \cite{zuiderveld1994clahe} es dividir la imagen en pequeñas regiones (tiles) y aplicar la ecualización del histograma de manera local en cada una de ellas. Además, para evitar la sobreamplificación del ruido, el histograma de cada tile se recorta en un límite de contraste configurable (clip limit), y el exceso se redistribuye uniformemente sobre el resto del histograma. Si no existiese este límite, el ruido se podría amplificar excesivamente; por ejemplo, si una zona de la imagen es homogénea (p.\,ej., un fondo oscuro) y contiene un par de píxeles ruidosos, tras la ecualización esos píxeles, antes imperceptibles, se convertirían en puntos brillantes. Finalmente, para evitar costuras visibles en las fronteras entre tiles, los valores de píxeles cercanos a los bordes se obtienen mediante interpolación bilineal entre los tiles vecinos, logrando así una transición suave y continua.
 
-\textbf{Estiramiento de contraste:} La idea detrás de esta técnica es remapear los valores de intensidad de la imagen al rango completo de valores posibles (0-255 para imágenes en escala de grises). Es decir, hace una transformación lineal que asigna el percentil mínimo ($p_{min}$) de intensidad a 0 y el percentil máximo ($p_{max}$) a 255, estirando proporcionalmente los valores intermedios:
+\textbf{Estiramiento de contraste:} La idea detrás de esta técnica es remapear los valores de intensidad de la imagen al rango completo de valores posibles (0-255 para imágenes en escala de grises). Es decir, hace una transformación lineal que asigna el percentil mínimo ($p_{min}$) de intensidad a 0 y el percentil máximo ($p_{max}$) a 255, estirando proporcionalmente los valores intermedios. Para ello, primero se recortan los valores de intensidad al rango $[p_{min}, p_{max}]$ mediante la función $\text{clip}$, y a continuación se aplica una interpolación lineal que mapea dicho rango al rango completo $[0, 255]$:
 
 \begin{equation}
 I'(x,y) = \frac{I(x,y) - p_{min}}{p_{max} - p_{min}} \cdot 255
 \end{equation}
 
-Donde $I(x,y)$ es la intensidad original del píxel en la posición $(x,y)$, y $I'(x,y)$ es la intensidad remapeada. La razón para usar los percentiles en lugar de los valores mínimo y máximo absolutos es que si se usa el mínimo y máximo absolutos, un solo píxel ruidoso extremo puede arruinar el resultado. Por ejemplo, si hay un único píxel con valor 10 y otro con valor 250 por ruido, el estiramiento apenas hace nada porque el rango ya parece amplio. En cambio, usando percentiles (p.\,ej., el 1\% y el 99\%), se ignoran esos valores extremos y se obtiene un estiramiento más representativo del rango real de intensidades en la imagen.
+Donde $I(x,y)$ es la intensidad original del píxel en la posición $(x,y)$, e $I'(x,y)$ es la intensidad remapeada. La razón para usar los percentiles en lugar de los valores mínimo y máximo absolutos es que si se usa el mínimo y máximo absolutos, un solo píxel ruidoso extremo puede arruinar el resultado. Por ejemplo, si hay un único píxel con valor 10 y otro con valor 250 por ruido, el estiramiento apenas hace nada porque el rango ya parece amplio. En cambio, usando percentiles (p.\,ej., el 1\% y el 99\%), se ignoran esos valores extremos y se obtiene un estiramiento más representativo del rango real de intensidades en la imagen.
 
 \begin{figure}[p]
     \centering
@@ -209,15 +209,15 @@ Una vez binarizada la imagen, los contornos permiten delimitar exactamente cada 
 
 \subsection{Operaciones morfológicas}
 
-Las operaciones morfológicas operan sobre conjuntos binarios, mediante un elemento estrcuturante (normalmente un cuadrado o un círculo) de forma y tamaño configurable. Las dos operaciones básicas son la dilatación y la erosión, que forman las operaciones compuestas. La \textbf{erosión} elimina píxeles de los bordes de los objetos, lo que puede ayudar a eliminar pequeñas regiones ruidosas o separar objetos conectados. Por otro lado, la dilatación agrega píxeles a los bordes de los objetos, lo que puede ayudar a cerrar pequeños agujeros o conectar objetos cercanos. Combinando estas dos operaciones se puede obtener la apertura y el cierre.
+Las operaciones morfológicas \cite{gonzalez2018digital} operan sobre conjuntos binarios, mediante un elemento estrcuturante (normalmente un cuadrado o un círculo) de forma y tamaño configurable. Las dos operaciones básicas son la dilatación y la erosión, que forman las operaciones compuestas. La \textbf{erosión} elimina píxeles de los bordes de los objetos, lo que puede ayudar a eliminar pequeñas regiones ruidosas o separar objetos conectados. Por otro lado, la \textbf{dilatación} agrega píxeles a los bordes de los objetos, lo que puede ayudar a cerrar pequeños agujeros o conectar objetos cercanos. Combinando estas dos operaciones se puede obtener la apertura y el cierre.
 
 La \textbf{apertura} (opening) es la combinación de erosión seguida de dilatación, lo que elimina objetos más pequeños que el kernel y suaviza los bordes de los objetos más grandes, se suele usar para eliminar ruido del tipo sal y pimienta:
 \begin{equation}
- A \circ B = (A \ominus B) \oplus B
+ A \circ B = (A \ominus B) \oplus B 
 \end{equation}
 El \textbf{cierre} (closing) es la combinación de dilatación seguida de erosión, lo que cierra pequeños agujeros dentro de los objetos y conecta objetos cercanos, se suele usar para rellenar huecos en los objetos segmentados:
 \begin{equation}
- A \bullet B = (A \oplus B) \ominus B
+ A \bullet B = (A \oplus B) \ominus B 
 \end{equation}
 En la implementación desarrollada se aplica primero la apertura para eliminar el ruido generado por la umbralización, y a continuación el cierre para recuperar la integridad de las gotas que hubieran quedado fragmentadas.
 
@@ -226,6 +226,8 @@ En la implementación desarrollada se aplica primero la apertura para eliminar e
 El tracking o seguimiento de objetos en vídeos es el proceso de asociar, frame a frame, las detecciones correspondientes al mismo objeto, construyendo así su trayectoria.
 
 \subsubsection{Flujo óptico de Lucas-Kanade}
+
+Se ha optado por este algoritmo por varias razones: es un algoritmo ligero y eficiente que no depende de GPU, se encuentra implementado en OpenCV, y su versión piramidal lo hace robusto frente a desplazamientos moderados. Además, al tratarse de un predictor y no de un tracker completo, se integra fácilmente con la asignación por distancia mínima ya implementada, sin añadir una gran complejidad adicional al pipeline.
 
 El algoritmo de \textbf{Lucas-Kanade} \cite{lucas1981iterative} se basa en la hipótesis de constancia de intensidad, es decir, asume que la intensidad de los píxeles de un objeto se mantiene constante entre frames consecutivos. Para ello, toma una ventana local de píxeles alrededor de cada punto de interés y asume que todos los píxeles de dicha ventana se desplazan de forma uniforme. A continuación, busca en el siguiente frame la posición que minimiza la diferencia de intensidades respecto a la ventana original, obteniendo así el vector de desplazamiento del punto.
 Matemáticamente, el algoritmo resuelve la siguiente ecuación para cada punto de interés:
@@ -238,13 +240,19 @@ Matemáticamente, el algoritmo resuelve la siguiente ecuación para cada punto d
 
 donde $(u, v)$ es el vector de desplazamiento que se desea calcular, $I_x$ e $I_y$ son las derivadas parciales de la intensidad de la imagen respecto a $x$ e $y$, respectivamente, y $I_t$ es la derivada parcial respecto al tiempo, es decir, la diferencia de intensidades entre los dos frames.
 
-Este sistema es sobredeterminado: la ecuación básica del flujo óptico $I_x u + I_y v + I_t = 0$ tiene dos incógnitas ($u$ y $v$) pero se aplica a todos los píxeles de la ventana local, generando más ecuaciones que incógnitas. Para obtener una solución única, Lucas-Kanade minimiza la suma de los errores al cuadrado de todas las ecuaciones de la ventana, lo que conduce al sistema matricial $2\times2$ mostrado anteriormente, que sí tiene solución única siempre que la matriz del sistema no sea singular, es decir, siempre que exista suficiente textura en la ventana local.
+Este sistema es sobredeterminado, es decir, la ecuación básica del flujo óptico $I_x u + I_y v + I_t = 0$ tiene dos incógnitas ($u$ y $v$) pero se aplica a todos los píxeles de la ventana local,generando más ecuaciones que incógnitas. Para obtener una solución única, Lucas-Kanade minimiza la suma de los cuadrados de los residuos de dicha ecuación, es decir, la cantidad en que se viola la condición de constancia de intensidad en cada píxel de la ventana:
 
-Sin embargo, la formulación básica falla cuando el desplazamiento entre frames es grande en comparación con el tamaño de la ventana, ya que la hipótesis de desplazamiento uniforme deja de ser válida. Para solventar esto, en la práctica se emplea la \textbf{versión piramidal} del algoritmo \cite{bouguet2001pyramidal}: la imagen se submuestrea en varios niveles de resolución formando una pirámide, se calcula el flujo en el nivel más grueso (donde los grandes desplazamientos se convierten en pequeños) y el resultado se refina progresivamente hacia la resolución original. OpenCV implementa esta variante a través de la función \texttt{cv2.calcOpticalFlowPyrLK}, que es la utilizada en la implementación desarrollada.
+\begin{equation}
+    \sum_{(x,y) \in W} \left( I_x(x,y)\, u + I_y(x,y)\, v + I_t(x,y) \right)^2
+\end{equation}
+
+donde $W$ es el conjunto de píxeles de la ventana local. Esta minimización conduce al sistema matricial $2\times2$ mostrado anteriormente, que tiene solución única siempre que la matriz del sistema no sea singular, es decir, siempre que exista suficiente textura en la ventana local.
+
+Sin embargo, la formulación básica falla cuando el desplazamiento entre frames es grande en comparación con el tamaño de la ventana, ya que la hipótesis de desplazamiento uniforme deja de ser válida. Para solventar esto, en la práctica se emplea la \textbf{versión piramidal} del algoritmo \cite{bouguet2001pyramidal}, esto es, la imagen se submuestrea en varios niveles de resolución formando una pirámide, se calcula el flujo en el nivel más grueso (donde los grandes desplazamientos se convierten en pequeños) y el resultado se refina progresivamente hacia la resolución original. OpenCV implementa esta variante a través de la función \texttt{cv2.calcOpticalFlowPyrLK}, que es la utilizada en la implementación desarrollada.
 
 \subsubsection{Asignación por distancia mínima}
 
-Una vez predichas las posiciones futuras de los tracks activos mediante flujo óptico, el problema de asociación consiste en decidir qué detección del fotograma actual corresponde a cada track. La estrategia greedy por distancia mínima selecciona para cada detección el track disponible más cercano en términos de distancia euclídea entre centroides, siempre que dicha distancia no supere un umbral máximo configurable. Los tracks que no reciben ninguna detección durante varios fotogramas consecutivos se consideran perdidos y se descartan, mientras que las detecciones sin track asignado generan nuevos tracks.
+Una vez predichas las posiciones futuras de los tracks activos mediante flujo óptico, el problema de asociación consiste en decidir qué detección del fotograma actual corresponde a cada track. La estrategia greedy por distancia mínima selecciona, para cada detección, el track disponible más cercano en términos de distancia euclídea entre centroides, siempre que dicha distancia no supere un umbral máximo configurable desde la interfaz. Los tracks que no reciben ninguna detección durante varios fotogramas consecutivos se consideran perdidos y se descartan, mientras que las detecciones sin track asignado generan nuevos tracks.
 Este enfoque, combinado con la predicción de Lucas-Kanade, es suficientemente robusto para los vídeos analizados de corta duración ( $\approx$ 120 fotogramas) y con movimiento de gotas relativamente uniforme sin necesidad de recurrir a métodos más complejos como el filtro de Kalman.
 
 \section{Técnicas basadas en deep learning}
