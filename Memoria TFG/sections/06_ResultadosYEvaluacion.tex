@@ -57,6 +57,7 @@ En la figura \ref{fig:E1} se muestra un frame del vídeo generado para este expe
 \begin{table}[H]
 \centering
 \small
+\caption{Resultados del experimento E1 (precisión de segmentación).}
 \begin{tabular}{ccccccc}
 \hline
 \textbf{Diámetro GT (px)} & \textbf{Recall} & \textbf{Precision} & \textbf{F1} & \textbf{MRE\textsubscript{diam} (\%)} & \textbf{RMSE\textsubscript{diam} (px)} & \textbf{Circ. media} \\
@@ -70,11 +71,10 @@ En la figura \ref{fig:E1} se muestra un frame del vídeo generado para este expe
 50 & 1.00 & 1.00 & 1.00 & 7.73  & 3.87 & 0.8793 \\
 \hline
 \end{tabular}
-\caption{Resultados del experimento E1 (precisión de segmentación).}
 \label{tab:e1_resultados}
 \end{table}
 
-Como se pueden observar en los resultados mostrados en la tabla \ref{tab:e1_resultados} y en la figura \ref{fig:E1_metrics}, el analizador detecta correctamente todas las gotas (Recall y Precision de 1.00) para todos los diámetros, lo que indica que la segmentación es robusta incluso para gotas pequeñas. Sin embargo, se observa un error absoluto constante en la segmentación de aproximadamente 3.8 píxeles, debido a la discretización digital y umbralización, que también explica por qué la métrica de circularidad se penaliza por el efecto "escalera" de los bordes perimetrales mientras que la redondez se mantiene excelente por encima de 0.95. Aunque este ensanchamiento sistemático del contorno es prácticamente despreciable en gotas grandes (reduciendo el error relativo al 7.7\% en diámetros de 50 px), resulta un factor crítico al evaluar las microgotas de 6 px, cuyo tamaño se sobreestima en más de un 62\%.
+Como se pueden observar en los resultados mostrados en la tabla \ref{tab:e1_resultados} y en la figura \ref{fig:E1_metrics}, el analizador detecta correctamente todas las gotas (Recall y Precision de 1.00) para todos los diámetros, lo que indica que la segmentación es robusta incluso para gotas pequeñas. Sin embargo, se observa un error absoluto constante en la segmentación de aproximadamente 3.8 píxeles, debido a la discretización digital y umbralización, que también explica por qué la métrica de circularidad se penaliza por el efecto escalera de los bordes perimetrales mientras que la redondez se mantiene excelente por encima de 0.95. Aunque este ensanchamiento sistemático del contorno es prácticamente despreciable en gotas grandes (reduciendo el error relativo al 7.7\% en diámetros de 50 px), resulta un factor crítico al evaluar las microgotas de 6 px, cuyo tamaño se sobreestima en más de un 62\%.
 
 \begin{figure}[htbp]
     \centering
@@ -103,6 +103,7 @@ Como se pueden observar en los resultados mostrados en la tabla \ref{tab:e1_resu
 \begin{table}[H]
 \centering
 \small
+\caption{Resultados del experimento E2 (precisión de la estimación de velocidad y tracking). La velocidad se expresa en píxeles por frame (px/f).}
 \begin{tabular}{ccccccc}
 \hline
 \textbf{($v_x, v_y$)} & \textbf{Velocidad GT} & \textbf{Velocidad Det.} & \textbf{MRE\textsubscript{vel} (\%)} & \textbf{RMSE\textsubscript{vel}} & \textbf{F1 Track} & \textbf{Frag.} \\
@@ -114,7 +115,6 @@ Como se pueden observar en los resultados mostrados en la tabla \ref{tab:e1_resu
 (-4.0, 2.0) & 4.472 px/f & 4.472 $\pm$ 0.013 px/f & 0.17 & 0.0029 px/f & 1.0 & 0.0 \\
 \hline
 \end{tabular}
-\caption{Resultados del experimento E2 (precisión de la estimación de velocidad y tracking). La velocidad se expresa en píxeles por frame (px/f).}
 \label{tab:e2_resultados}
 \end{table}
  
@@ -151,6 +151,7 @@ En los datos mostrados en la tabla \ref{tab:e2_resultados} y en la figura \ref{f
 \begin{table}[H]
 \centering
 \small
+\caption{Resultados del experimento E3 (robustez al ruido gaussiano y sal y pimienta en gotas de 20 px).}
 \begin{tabular}{lrccccc}
 \hline
 \textbf{Tipo de Ruido} & \textbf{Nivel} & \textbf{Recall} & \textbf{F1} & \textbf{MRE\textsubscript{diam} (\%)} & \textbf{RMSE\textsubscript{diam} (px)} & \textbf{Circ. media} \\
@@ -172,7 +173,6 @@ Sal y Pimienta & 5\%  & 1.00 & 1.00 & 44.55 & 8.91 & 0.7652 \\
 Sal y Pimienta & 10\% & 0.95 & 0.97 & 44.34 & 8.87 & 0.6100 \\
 \hline
 \end{tabular}
-\caption{Resultados del experimento E3 (robustez al ruido gaussiano y sal y pimienta en gotas de 20 px).}
 \label{tab:e3_resultados}
 \end{table}
 
@@ -217,6 +217,7 @@ Como compromiso de diseño, se ha priorizado la detección y localización de la
 \begin{table}[H]
 \centering
 \small
+\caption{Resultados del experimento E4 (Rango de tamaños detectables). Se omitió la columna Precision porque mantuvo un valor constante de 1.0 en todos los escenarios.}
 \begin{tabular}{cccccc}
 \hline
 \textbf{Diámetro GT (px)} & \textbf{Recall} & \textbf{F1} & \textbf{MRE\textsubscript{diam} (\%)} & \textbf{RMSE\textsubscript{diam} (px)} & \textbf{Circ. media} \\
@@ -239,7 +240,6 @@ Como compromiso de diseño, se ha priorizado la detección y localización de la
 80 & 1.00 & 1.00 & 6.99   & 5.60 & 0.8376 \\
 \hline
 \end{tabular}
-\caption{Resultados del experimento E4 (Rango de tamaños detectables). Se omitió la columna Precision porque mantuvo un valor constante de 1.0 en todos los escenarios.}
 \label{tab:e4_resultados}
 \end{table}
 
@@ -268,6 +268,7 @@ El sistema demuestra una excelente capacidad de localización incluso en el lím
 \begin{table}[H]
 \centering
 \small
+\caption{Resultados del experimento E5 (impacto de la densidad de gotas en el tracking y la estimación cinemática). La Precision se omite por mantenerse constante en 1.0.}
 \begin{tabular}{cccccc}
 \hline
 \textbf{Densidad ($N$)} & \textbf{Recall} & \textbf{F1} & \textbf{Fragmentación} & \textbf{MRE\textsubscript{vel} (\%)} & \textbf{RMSE\textsubscript{vel} (px/f)} \\
@@ -279,7 +280,6 @@ El sistema demuestra una excelente capacidad de localización incluso en el lím
 50 & 0.74 & 0.85 & 0.28 & 45.48 & 2.28 \\
 \hline
 \end{tabular}
-\caption{Resultados del experimento E5 (impacto de la densidad de gotas en el tracking y la estimación cinemática). La Precision se omite por mantenerse constante en 1.0.}
 \label{tab:e5_resultados}
 \end{table}
 

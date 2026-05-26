@@ -12,11 +12,11 @@ En este apartado se va a realizar una breve introducción a los sprays, nebuliza
 
 Un \textbf{spray} es un flujo disperso constituido por una fase líquida distribuida en forma de gotas dentro de una fase gaseosa. Cuando estas gotas son suficientemente finas y permanecen estables en suspensión, el sistema suele denominarse \textbf{aerosol}. Los sprays se encuentran en una amplia variedad de aplicaciones, desde la agricultura (aspersores), la medicina (nebulizadores) hasta la industria (inyección de combustible en motores, recubrimiento de superficies). La caracterización de los sprays es fundamental tanto para comprender los mecanismos físicos que gobiernan su formación y evolución como para mejorar las prestaciones de los sistemas en los que intervienen.
 
-Un \textbf{nebulizador} es un dispositivo que transforma un líquido en un aerosol mediante la aplicación de energía, ya sea a través de un flujo de gas (neumática), ultrasonidos o vibraciones mecánicas. En la nebulización neumática, el gas transfiere energía cinética al líquido, generando perturbaciones e inestabilidades en su superficie que pueden conducir a la rotura del chorro o de las estructuras líquidas y, en consecuencia, a la formación de gotas. Este proceso no garantiza que las estructuras generadas sean esféricas, ya que en líquidos suficientemente viscosos o con comportamiento no newtoniano pueden aparecer filamentos, ligamentos u otras formas alargadas. Por este motivo, en ocasiones, se descartan el uso de técnicas que asumen la esfericidad de las gotas (p. ej., difracción láser) y se opta por técnicas de visión por computador, que permiten detectar y caracterizar las gotas independientemente de su forma.
+Un \textbf{nebulizador} es un dispositivo que transforma un líquido en un aerosol mediante la aplicación de energía, ya sea a través de un flujo de gas (neumática), ultrasonidos o vibraciones mecánicas. En la nebulización neumática, el gas transfiere energía cinética al líquido, generando perturbaciones e inestabilidades en su superficie que pueden conducir a la rotura del chorro o de las estructuras líquidas y, en consecuencia, a la formación de gotas. Este proceso no garantiza que las estructuras generadas sean esféricas, ya que en líquidos suficientemente viscosos o con comportamiento no newtoniano pueden aparecer filamentos, ligamentos u otras formas alargadas. Por este motivo, en ocasiones, se descarta el uso de técnicas que asumen la esfericidad de las gotas (p. ej., difracción láser) y se opta por técnicas de visión por computador, que permiten detectar y caracterizar las gotas independientemente de su forma.
 
 \subsection{Flow Blurring}
 
-El nebulizador neumático que se usa en los experimentos analizados en este trabajo son del tipo \textbf{Flow Blurring \cite{ganan2005enhanced}}, desarrollado a partir de 2005 por Gañán Calvo y su grupo de investigación.
+El nebulizador neumático que se usa en los experimentos analizados en este trabajo es del tipo \textbf{Flow Blurring \cite{ganan2005enhanced}}, desarrollado a partir de 2005 por Gañán Calvo y su grupo de investigación.
 
 La base física de este tipo de inyector es que la rotura del líquido tiene lugar en gran medida en el interior del dispositivo, como consecuencia de la intensa interacción gas-líquido. Esta interacción genera recirculación, altas tasas de cizalla e inestabilidades interfaciales que favorecen la fragmentación del líquido cuando las fuerzas aerodinámicas superan los efectos estabilizadores de la viscosidad y la tensión superficial \cite{modesto2019flowblurring} \cite{hermosin2019flowblurring}.
 
@@ -86,11 +86,11 @@ O representada de manera compacta:
 P_{i,j} = f(i, j) ~~~~ i,j \in {0, n-1}
 \end{equation}
 
-Una vez definido la forma de representar imágenes digitales, podemos proceder a explicar algunas técnicas clásicas de procesamiento.
+Una vez definida la forma de representar imágenes digitales, podemos proceder a explicar algunas técnicas clásicas de procesamiento.
 
 \section{Técnicas clásicas}
 
-En este apartado de abordarán de manera teórica los algoritmos y técnicas que se han tenido en cuenta para el desarrollo de este proyecto, iremos desde el preprocesamiento, pasando por la segmentación, operaciones morfológicas y finalmente el tracking de objetos, cubriendo así todo el pipeline de la solución implementada.
+En este apartado se abordarán de manera teórica los algoritmos y técnicas que se han tenido en cuenta para el desarrollo de este proyecto, iremos desde el preprocesamiento, pasando por la segmentación, operaciones morfológicas y finalmente el tracking de objetos, cubriendo así todo el pipeline de la solución implementada.
 
 \subsection{Preprocesamiento de imágenes}\label{subsec:preproc}
 
@@ -209,7 +209,7 @@ Una vez binarizada la imagen, los contornos permiten delimitar exactamente cada 
 
 \subsection{Operaciones morfológicas}
 
-Las operaciones morfológicas \cite{gonzalez2018digital} operan sobre conjuntos binarios, mediante un elemento estrcuturante (normalmente un cuadrado o un círculo) de forma y tamaño configurable. Las dos operaciones básicas son la dilatación y la erosión, que forman las operaciones compuestas. La \textbf{erosión} elimina píxeles de los bordes de los objetos, lo que puede ayudar a eliminar pequeñas regiones ruidosas o separar objetos conectados. Por otro lado, la \textbf{dilatación} agrega píxeles a los bordes de los objetos, lo que puede ayudar a cerrar pequeños agujeros o conectar objetos cercanos. Combinando estas dos operaciones se puede obtener la apertura y el cierre.
+Las operaciones morfológicas \cite{gonzalez2018digital} operan sobre conjuntos binarios, mediante un elemento estructurante (normalmente un cuadrado o un círculo) de forma y tamaño configurable. Las dos operaciones básicas son la dilatación y la erosión, que forman las operaciones compuestas. La \textbf{erosión} elimina píxeles de los bordes de los objetos, lo que puede ayudar a eliminar pequeñas regiones ruidosas o separar objetos conectados. Por otro lado, la \textbf{dilatación} agrega píxeles a los bordes de los objetos, lo que puede ayudar a cerrar pequeños agujeros o conectar objetos cercanos. Combinando estas dos operaciones se puede obtener la apertura y el cierre.
 
 La \textbf{apertura} (opening) es la combinación de erosión seguida de dilatación, lo que elimina objetos más pequeños que el kernel y suaviza los bordes de los objetos más grandes, se suele usar para eliminar ruido del tipo sal y pimienta:
 \begin{equation}

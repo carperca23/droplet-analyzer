@@ -6,7 +6,7 @@ En este apartado se describirá la solución final implementada, detallando tant
 
 \section{Backend}
 
-El backend de la aplicación se encarga de procesar las imágenes de alta velocidad obtenidas durante los experimentos con nebulizadores Flow Blurring. Para ello, se ha desarrollado un pipeline de procesamiento que incluye varias etapas, como la preprocesamiento de las imágenes, la segmentación de las gotas y la extracción de características relevantes para el análisis.
+El backend de la aplicación se encarga de procesar las imágenes de alta velocidad obtenidas durante los experimentos con nebulizadores Flow Blurring. Para ello, se ha desarrollado un pipeline de procesamiento que incluye varias etapas, como el preprocesamiento de las imágenes, la segmentación de las gotas y la extracción de características relevantes para el análisis.
 
 Cabe destacar que la mayor parte del esfuerzo de implementación se ha centrado en el desarrollo de este pipeline de procesamiento, ya que es la parte más crítica y compleja de la aplicación. Se han utilizado diversas técnicas de procesamiento de imágenes, como filtros de suavizado, umbralización adaptativa y algoritmos de detección de bordes, para lograr una segmentación precisa de las gotas.
 
@@ -125,7 +125,7 @@ En la figura \ref{fig:mejora-contraste} se puede apreciar la mejora del contrast
 
 \subsubsection{Reducción de ruido}
 
-Tras aplicar las técnicas de mejora de contraste, se introduce algo de ruido de tipo sal y pimienta, como se puede apreciar en \ref{sub@fig:estiramiento}. Para reducir este ruido se ha optado por el uso del algoritmo Fast Non-Local Means Denoising \cite{ipol.2011.bcm_nlm}, implementado en OpenCV a través de la función \texttt{cv2.fastNlMeansDenoising}. Este algoritmo es una versión optimizada del algoritmo Non-Local Means, que reduce el ruido preservando los bordes y detalles de la imagen. El usuario puede configurar el parámetro de fuerza de reducción de ruido desde la interfaz gráfica, permitiendo ajustar el nivel de suavizado según las características específicas de cada vídeo. La teoría detrás de este algoritmo y de otras técnicas de reducción de ruido se explicaron en la sección \ref{subsec:preproc}.
+Tras aplicar las técnicas de mejora de contraste, se introduce algo de ruido de tipo sal y pimienta, como se puede apreciar en \ref{fig:estiramiento}. Para reducir este ruido se ha optado por el uso del algoritmo Fast Non-Local Means Denoising \cite{ipol.2011.bcm_nlm}, implementado en OpenCV a través de la función \texttt{cv2.fastNlMeansDenoising}. Este algoritmo es una versión optimizada del algoritmo Non-Local Means, que reduce el ruido preservando los bordes y detalles de la imagen. El usuario puede configurar el parámetro de fuerza de reducción de ruido desde la interfaz gráfica, permitiendo ajustar el nivel de suavizado según las características específicas de cada vídeo. La teoría detrás de este algoritmo y de otras técnicas de reducción de ruido se explicaron en la sección \ref{subsec:preproc}.
 
 Hay que remarcar que este paso es uno de los más complejos computacionalmente, pero dado que la solución no necesita ser en tiempo real, se ha optado por sacrificar algo de rendimiento a cambio de una mejor calidad en la segmentación de las gotas.
 
@@ -145,7 +145,7 @@ Hay que remarcar que este paso es uno de los más complejos computacionalmente, 
         \label{subfig:denoised}
     \end{subfigure}
     
-    \caption{Reducción de ruido mediente FNL means Denoising ($h=10$).}
+    \caption{Reducción de ruido mediante FNL means Denoising ($h=10$).}
     \label{fig:denoising}
 \end{figure}
 
@@ -309,9 +309,9 @@ En la figura \ref{fig:filtros} se pueden apreciar los resultados de aplicar esto
 
 \subsubsection{Mediciones}
 
-Una vez que tenemos los contronos filtrados, el siguiente paso es extraer y guardar las siguientes características de cada gota: centroide, área, perímetro, diámetro equivalente, circularidad, redondez, bounding box y la máscara.
+Una vez que tenemos los contronos filtrados, el siguiente paso es extraer y guardar las siguientes variables de cada gota: centroide, área, perímetro, diámetro equivalente, circularidad, redondez, bounding box y la máscara.
 
-El área, el perímetro y la circularidad se calculan como se ha explicado en el apartado anterior \ref{subsubsec:filtros}.
+El área, el perímetro y la circularidad se calculan como se ha explicado en el apartado anterior \ref{subsubsec:filtros}. A continuación se explican el cálculo del resto de variables.
 
 El \negritas{centroide} es el centro de masa geometrico del contorno. Se calcula a partir de los momentos de imagen \cite{1057692HU}\cite{bradski2008learning}, que son integrales ponderadas de la distribución de intensidad. Para una región binaria, el momento de orden $p, q$ se define como:
 \begin{equation}
@@ -340,15 +340,17 @@ El \negritas{diámetro equivalente} es el diámetro que tendría un círculo hip
     A = \pi \left(\frac{d}{2}\right)^2 \implies d = 2\sqrt{\frac{A}{\pi}}
 \end{equation}
 
-La \negritas{redondez} es una medida distinta a la circularidad, se ha tomado la decisión de incluirla ya que, a diferencia de la circularidad, no se ve afectada por las irregularidades en el borde del contorno, ya que se basa en el eje mayor de la elipse ajustada al contorno, en lugar de basarse en el perímetro del contorno \cite{russ2011image}:
+La \textbf{redondez} es una medida morfológica distinta de la circularidad. Permite cuantificar hasta qué punto la forma proyectada de un objeto se aproxima a una geometría circular compacta. En el análisis de imágenes, esta magnitud resulta útil para comparar morfologías entre partículas, gotas, burbujas o fragmentos, especialmente cuando se desea distinguir objetos aproximadamente circulares de estructuras alargadas, deformadas o irregulares. Su valor tiende a ser próximo a 1 cuando el objeto presenta una forma cercana a un círculo, mientras que disminuye a medida que aumenta la elongación o la desviación respecto a una geometría circular.
+
+En este trabajo, la redondez se utiliza como un descriptor complementario de la forma, junto con la circularidad. Se ha incluido porque, a diferencia de la circularidad, es menos sensible a irregularidades locales del borde del contorno. La circularidad depende directamente del perímetro, por lo que pequeñas rugosidades, ruido de segmentación o protuberancias pueden reducir su valor de forma significativa. En cambio, la redondez proporciona una medida más asociada a la morfología global del objeto. Esto permite diferenciar si una reducción de la circularidad se debe principalmente a pequeñas irregularidades del borde o a una deformación real de la forma general, como una elongación, un achatamiento o una fragmentación asimétrica. En este trabajo, dicha morfología global se evalúa mediante el ajuste de una elipse al contorno segmentado, de modo que la redondez se define como \cite{russ2011image} \cite{wadell1932roundness}:
 \begin{equation}
     R = \frac{4A}{\pi \cdot MA^2}
 \end{equation}
-Donde $MA$ es el eje mayor de la elipse ajustada al contorno, que se calcula utilizando la función \texttt{cv2.fitEllipse}, que ajusta una elipse a un conjunto de puntos (en nuestro caso, los puntos del contorno).
+donde $A$ es el área del contorno y $MA$ es el eje mayor de la elipse ajustada al contorno. Este parámetro se obtiene mediante la función cv2.fitEllipse, que ajusta una elipse al conjunto de puntos que definen el contorno segmentado. A partir de dicha elipse se extraen sus ejes principales, siendo $MA$ el mayor de ellos. De este modo, la redondez se evalúa a partir de una dimensión geométrica global del objeto, en lugar de depender directamente de las pequeñas variaciones locales del borde.
 
-La \negritas{bounding box} es el rectángulo mínimo que encierra completamente el contorno. Se calcula utilizando la función \texttt{cv2.boundingRect}, que devuelve las coordenadas del vértice superior izquierdo de la bounding box, así como su ancho y alto.
+La \textbf{bounding box} corresponde al rectángulo de menor tamaño, alineado con los ejes de la imagen, que encierra completamente el contorno segmentado de cada gota. En este trabajo se calcula mediante la función cv2.boundingRect, que devuelve las coordenadas del vértice superior izquierdo del rectángulo, junto con su anchura y altura. Esta información permite delimitar espacialmente cada gota dentro del frame y facilita tanto su localización como el recorte o análisis posterior de la región de interés.
 
-Finalmente, la máscara de cada gota se obtiene rellenando el contorno de la gota en una imagen binaria del mismo tamaño que el frame original, utilizando la función \texttt{cv2.drawContours}  con el parámetro de grosor establecido en $-1$ para rellenar el contorno.
+Finalmente, la máscara individual de cada gota se obtiene a partir del contorno segmentado. Para ello, se genera una imagen binaria del mismo tamaño que el frame original y se rellena el área delimitada por el contorno mediante la función \texttt{cv2.drawContours}, estableciendo el parámetro de grosor en $-1$. De esta forma, los píxeles pertenecientes a la gota quedan identificados en la máscara, mientras que el resto de la imagen permanece como fondo
 
 Todo esto se almacena en una lista de diccionarios, donde cada diccionario corresponde a una gota y contiene las características mencionadas anteriormente. 
 
@@ -460,36 +462,36 @@ Por último, si se desactiva la casilla de Mejorar Tracking con Lucas-Kanade, so
 \begin{table}[H]
 \centering
 \small
+\caption{Parámetros de segmentación configurables desde la interfaz gráfica.}
 \begin{tabular}{|p{4.4cm}|p{5.5cm}|p{2.2cm}|p{2.2cm}|}
 \hline
 \textbf{Parámetro} & \textbf{Descripción} & \textbf{Rango} & \textbf{Valor por defecto} \\
 \hline
 Método de contraste & CLAHE local o estiramiento global por percentiles & --- & Estiramiento global \\
 \hline
-Área mínima (px²) & Área mínima para considerar una región como gota & 1 – 500 & 10 \\
+Área mínima (px²) & Área mínima para considerar una región como gota & 1 - 500 & 10 \\
 \hline
-Área máxima (px²) & Área máxima para considerar una región como gota & 100 – 10\,000 & 5\,000 \\
+Área máxima (px²) & Área máxima para considerar una región como gota & 100 - 10\,000 & 5\,000 \\
 \hline
-Circularidad mínima & Umbral de circularidad para filtrar falsos positivos & 0 – 1 & 0.6 \\
+Circularidad mínima & Umbral de circularidad para filtrar falsos positivos & 0 - 1 & 0.6 \\
 \hline
-Redondez mínima & Umbral de redondez para filtrar contornos elongados & 0 – 1 & 0 \\
+Redondez mínima & Umbral de redondez para filtrar contornos elongados & 0 - 1 & 0 \\
 \hline
-Distancia máxima de tracking (px) & Distancia euclídea máxima para asociar una detección a un track & 5 – 200 & 50 \\
+Distancia máxima de tracking (px) & Distancia euclídea máxima para asociar una detección a un track & 5 - 200 & 50 \\
 \hline
-Tamaño ventana Lucas-Kanade & Tamaño de la ventana de búsqueda del flujo óptico & 5 – 51 & 15 \\
+Tamaño ventana Lucas-Kanade & Tamaño de la ventana de búsqueda del flujo óptico & 5 - 51 & 15 \\
 \hline
-Contraste CLAHE & \textit{Clip limit} del algoritmo CLAHE & 0.5 – 10 & 2 \\
+Contraste CLAHE & \textit{Clip limit} del algoritmo CLAHE & 0.5 - 10 & 2 \\
 \hline
-Fuerza reducción de ruido & Parámetro $h$ del algoritmo fNLM & 1 – 30 & 10 \\
+Fuerza reducción de ruido & Parámetro $h$ del algoritmo fNLM & 1 - 30 & 10 \\
 \hline
-Tamaño bloque adaptativo & Tamaño de la ventana de umbralización adaptativa gaussiana (siempre impar) & 3 – 31 & 11 \\
+Tamaño bloque adaptativo & Tamaño de la ventana de umbralización adaptativa gaussiana (siempre impar) & 3 - 31 & 11 \\
 \hline
-Constante adaptativa $C$ & Constante restada a la media local en la umbralización & $-10$ – 10 & 2 \\
+Constante adaptativa $C$ & Constante restada a la media local en la umbralización & $-10$ - 10 & 2 \\
 \hline
-Tamaño kernel morfología & Tamaño del elemento estructurante elíptico para apertura y cierre & 1 – 15 & 3 \\
+Tamaño kernel morfología & Tamaño del elemento estructurante elíptico para apertura y cierre & 1 - 15 & 3 \\
 \hline
 \end{tabular}
-\caption{Parámetros de segmentación configurables desde la interfaz gráfica.}
 \label{tab:parametros_gui}
 \end{table}
 
@@ -537,4 +539,4 @@ La figura \ref{fig:diagramaSecuencia} muestra la secuencia de llamadas entre el 
 
 Durante la ejecución, se despliega una ventana flotante (\texttt{tk.Toplevel}) que muestra una previsualización en tiempo real del procesamiento, con cuatro paneles que muestran el frame original, el frame preprocesado, el frame binarizado y el frame con las detecciones y tracking superpuestos. Esta funcionalidad es de gran utilidad para poder ajustar parámetros sin la necesidad de ejecutar el pipeline completo, ya que si vemos que los resultados no son buenos, podemos detener la ejecución, cambiar los parámetros y volver a lanzar el proceso de análisis, lo que ahorra mucho tiempo.
 
-Las imágenes no se actualizan cada iteración, sino aproximadamente 10 veces por cada segundo de vídeo procesado, para no provocar un cuello de botella en el rendimiento. La imágenes se muestran usando Pillow \cite{pillow2023}, ya que Tkinter no permite renderizar directamente arrays de Numpy, que es el formato con el que trabaja OpenCv.
+Las imágenes no se actualizan cada iteración, sino aproximadamente 10 veces por cada segundo de vídeo procesado, para no provocar un cuello de botella en el rendimiento. Las imágenes se muestran usando Pillow \cite{pillow2023}, ya que Tkinter no permite renderizar directamente arrays de Numpy, que es el formato con el que trabaja OpenCv.

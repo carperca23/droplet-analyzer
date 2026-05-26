@@ -4,9 +4,9 @@
 
 \section{Metodología de desarrollo}
 
-El desarrollo de este proyecto ha seguido una textbf{metodología iterativa e incremental}, basada en los principios ágiles del desarrollo de software \cite{beck2001agile}. Se ha decidido adoptar esta metodología en lugar de un enfoque clásico en cascada debido al tipo de proyecto ante el que nos encontramos, que al ser de carácter exploratorio, requiere una gran flexibilidad que permita ir validando hipótesis en cada iteración para ir ajustando el rumbo del desarrollo. Además, al comenzar el proyecto, se tenía claro el objetivo al que se quería llegar, pero no el camino a seguir para alcanzarlo, por este motivo, una metodología en casada no habría sido viable por la rigidez e intolerancia al cambio por la que se caracteriza.
+El desarrollo de este proyecto ha seguido una \textbf{metodología iterativa e incremental}, basada en los principios ágiles del desarrollo de software \cite{beck2001agile}. Se ha decidido adoptar esta metodología en lugar de un enfoque clásico en cascada debido al tipo de proyecto ante el que nos encontramos, que al ser de carácter exploratorio, requiere una gran flexibilidad que permita ir validando hipótesis en cada iteración para ir ajustando el rumbo del desarrollo. Además, al comenzar el proyecto, se tenía claro el objetivo al que se quería llegar, pero no el camino a seguir para alcanzarlo, por este motivo, una metodología en cascada no habría sido viable por la rigidez e intolerancia al cambio por la que se caracteriza.
 
-El proyecto se ha planteado con textbf{ciclos cortos de desarrollo} de una o dos semanas de duración, según la dificultad de los obetivos marcados y la carga lectiva de ese periodo, cada uno de ellos estructurado de la siguiente manera:
+El proyecto se ha planteado con \textbf{ciclos cortos de desarrollo} de una o dos semanas de duración, según la dificultad de los objetivos marcados y la carga lectiva de ese periodo, cada uno de ellos estructurado de la siguiente manera:
 
 \begin{itemize}
     \item \textbf{Planificación:} Se definen los objetivos concretos del ciclo (p. ej., implementar la umbralización adaptativa, desarrollar la mejora del tracking, etc.)
@@ -23,7 +23,7 @@ Para gestionar todo el código desarrollado, se ha utilizado Git y GitHub \cite{
 
 En esta sección se detallarán los requisitos funcionales y no funcionales que se han identificado para el proyecto, fruto de las reuniones con los tutores y del desglose del flujo de trabajo actual del análisis manual de los experimentos del departamento.
 
-En ingeniería de software, se distinguen, principalmente, dos categorías de requisitos principales \cite{sommerville2016}: los \textbf{requisitos funcionales}, que distinguen qué debe hacer el sistema, es decir, las funciones, comportamientos y servicios concretos que tiene que ofrecer la solución implementada; y los \textbf{requisitos no funcionales}, que describen cómo deber ser el sistema, es decir, restricciones sobre calidad, usabilidad, portabilidad o rendimiento, entre otras propiedades que no corresponden a una funcionalidad concreta, pero que determinan igualmente el éxito del proyecto.
+En ingeniería de software, se distinguen, principalmente, dos categorías de requisitos principales \cite{sommerville2016}: los \textbf{requisitos funcionales}, que distinguen qué debe hacer el sistema, es decir, las funciones, comportamientos y servicios concretos que tiene que ofrecer la solución implementada; y los \textbf{requisitos no funcionales}, que describen cómo debe ser el sistema, es decir, restricciones sobre calidad, usabilidad, portabilidad o rendimiento, entre otras propiedades que no corresponden a una funcionalidad concreta, pero que determinan igualmente el éxito del proyecto.
 
 \subsection{Requisitos funcionales}
 
@@ -31,9 +31,9 @@ Los requisitos funcionales definen las capacidades que el sistema debe proporcio
 
 \begin{itemize}
     \item \textbf{RF-01 Carga de vídeo:} El sistema debe permitir cargar vídeos de alta velocidad en los formatos AVI, MP4, MOV y MKV.
-    \item \textbf{RF-02 Calibración espacial:} El sistema debe permitir establecer una factor de conversión píxel-unidad real para poder representar las mediciones en dichas unidades.
-    \item \textbf{RF-03 Calibración temporal:} El sistema debe permitir configurar la tasa de frames de adquisición del vídeo, obviando los metadatos del mismo. Esto es crucial para el cálculo de la velocidades.
-    \item \textbf{RF-04 Preprocesamiento configurable:} El sistema debe implementar el método de estiramiento de percentiles como mejora del contraste, ya que es el método al que los investigadores están acostumbrado a usar, si se implementa otro método, se debe permitir configurar el método a usar.
+    \item \textbf{RF-02 Calibración espacial:} El sistema debe permitir establecer un factor de conversión píxel-unidad real para poder representar las mediciones en dichas unidades.
+    \item \textbf{RF-03 Calibración temporal:} El sistema debe permitir configurar la tasa de frames de adquisición del vídeo, obviando los metadatos del mismo. Esto es crucial para el cálculo de las velocidades.
+    \item \textbf{RF-04 Preprocesamiento configurable:} El sistema debe implementar el método de estiramiento de percentiles como mejora del contraste, ya que es el método al que los investigadores están acostumbrados a usar, si se implementa otro método, se debe permitir configurar el método a usar.
     \item \textbf{RF-05 Segmentación de gotas:} El sistema debe segmentar automáticamente las gotas, para su posterior análisis.
     \item \textbf{RF-06 Filtrado de detecciones:} El sistema tiene que implementar un filtrado de detecciones para eliminar falsos positivos, ya que, en muchos vídeos, hay artefactos que pueden ser detectados erróneamente como gotas, como por ejemplo, el marco circular del objetivo de la cámara.
     \item \textbf{RF-07 Tracking de gotas:} El sistema debe implementar un método que permita seguir las gotas a lo largo de los frames, para poder calcular trayectorias y velocidades.
@@ -44,7 +44,7 @@ Los requisitos funcionales definen las capacidades que el sistema debe proporcio
     \item \textbf{RF-12 Frames de diagnóstico:} El sistema debe permitir previsualizar el resultado del preprocesamiento y la binarización sobre el primer fotograma sin necesidad de ejecutar el análisis completo.
     \item \textbf{RF-13 Previsualización en tiempo real:} Durante el procesamiento, el sistema debe mostrar en una ventana flotante los fotogramas original, preprocesado, binarizado y con tracking superpuesto.
     \item \textbf{RF-14 Cancelación del análisis:} El sistema debe permitir detener el procesamiento de forma segura en cualquier momento.
-    \item \textbf{RF-15 Interfaz gráfica de usuario:} El sistema debe contar con una interfaz gráfica de usuario intuitiva y fácil de usar, que permita a los investigadores configurar los parámetros del análisis y visualizar los resultados de forma clara, ya que los investigadores no tienen por que tener conocimientos avanzados de informática y programación.
+    \item \textbf{RF-15 Interfaz gráfica de usuario:} El sistema debe contar con una interfaz gráfica de usuario intuitiva y fácil de usar, que permita a los investigadores configurar los parámetros del análisis y visualizar los resultados de forma clara, ya que los investigadores no tienen por qué tener conocimientos avanzados de informática y programación.
 \end{itemize}
 
 \subsection {Requisitos no funcionales}
@@ -113,7 +113,7 @@ En este proyecto la EDT se ha estructurado en tres niveles: el nivel raíz repre
     \label{fig:edt}
 \end{figure}
 
-A continuación, se describirán con más detalle cada una de los bloques y sus subtareas.
+A continuación, se describirán con más detalle cada uno de los bloques y sus subtareas.
 
 \subsection{T1: Estudio del estado del arte}
 
@@ -159,7 +159,7 @@ A continuación, se describirán con más detalle cada una de los bloques y sus 
 
 \section{Planificación temporal}
 
-La planificación temporal recoge la distribución en el tiempo de las tareas definidas en la EDT y los hitos del proyecto. Para su elaboración se ha utilizado \textbf{Microsoft Project} \cite{microsoft_project}, herramienta estándar en la gestión de proyectos que permite construir diagramas de Gantt, asignar duraciones y dependencias entre tareas, y visualizar la ruta crítica del proyecto. El diagrama resultante se muestra en la Figura.
+La planificación temporal recoge la distribución en el tiempo de las tareas definidas en la EDT y los hitos del proyecto. Para su elaboración se ha utilizado \textbf{Microsoft Project} \cite{microsoft_project}, herramienta estándar en la gestión de proyectos que permite construir diagramas de Gantt, asignar duraciones y dependencias entre tareas, y visualizar la ruta crítica del proyecto. El diagrama resultante se muestra en las Figuras \ref{fig:gantt1} y \ref{fig:gantt2}.
 
 Dado que la metodología adoptada es iterativa, la planificación no es completamente lineal: algunas tareas se solapan en el tiempo o se retoman en iteraciones posteriores a medida que los resultados de las pruebas orientan el desarrollo. No obstante, el diagrama de Gantt refleja una estimación razonable de la dedicación real a cada grupo de tareas a lo largo del periodo de desarrollo del proyecto, que abarca desde el \textbf{3 de marzo de 2025} hasta la \textbf{entrega final el 27 de mayo de 2026}.
  
@@ -172,6 +172,7 @@ Cabe destacar que la tarea T5.1 (redacción de la memoria) se desarrolla de form
 \begin{table}[H]
 \centering
 \small
+\caption{Hitos del proyecto con sus fechas objetivo y tareas de la EDT asociadas.}
 \begin{tabular}{p{1cm} p{4.8cm} p{2cm} p{5cm}}
 \hline
 \textbf{ID} & \textbf{Hito} & \textbf{Fecha} & \textbf{Tareas completadas} \\
@@ -185,7 +186,6 @@ H-06 & Pruebas y ajustes finales & 31/03/2026 & T4.1, T4.2, T4.3 \\
 H-07 & Memoria y entrega final & 27/05/2026 & T5.1, T5.2 \\
 \hline
 \end{tabular}
-\caption{Hitos del proyecto con sus fechas objetivo y tareas de la EDT asociadas.}
 \label{tab:hitos}
 \end{table}
 
@@ -222,7 +222,7 @@ A partir de las duraciones registradas en el diagrama de Gantt, y teniendo en cu
         T2 Backend                        & 8 + 12 + 14 + 10 + 22 + 12 + 8   & 86            & 258                 \\
         T3 Frontend                       & 2 + 5 + 3 + 3 + 4                & 17            & 51                  \\
         T4 Pruebas                        & 8 + 5 + 4                        & 17            & 51                  \\
-        T5 Documentación \ref{aclaracion} & 258 días, 30\,\% dedicación) + 2 & —             & 232                 \\
+        T5 Documentación & 258 días, 30\% dedicación + 2 & —             & 232                 \\
         \hline
         \textbf{Total}                    &                                  &               & \textbf{892}        \\
         \hline
@@ -231,7 +231,7 @@ A partir de las duraciones registradas en el diagrama de Gantt, y teniendo en cu
     \label{tab:horas_gantt}
 \end{table}
 
-\label{aclaracion}T5.1 (redacción de la memoria) es una tarea transversal que abarca 258 días laborables, pero no ocupa la jornada completa en ningún momento. Para la estimación económica se imputa únicamente un \textbf{30\,\% de dedicación media} sobre esos días: $258 \times 0{,}3 \times 3\,\text{h} \approx 232\,\text{h}$, valor más representativo del esfuerzo real de documentación.
+T5.1 (redacción de la memoria) es una tarea transversal que abarca 258 días laborables, pero no ocupa la jornada completa en ningún momento. Para la estimación económica se imputa únicamente un \textbf{30\,\% de dedicación media} sobre esos días: $258 \times 0{,}3 \times 3\,\text{h} \approx 232\,\text{h}$, valor más representativo del esfuerzo real de documentación.
 
 \section{Estudio económico y presupuesto}
 
@@ -245,6 +245,7 @@ El coste por hora se ha estimado tomando como referencia el informe de consulta 
 
 \begin{table}[H]
 \centering
+\caption{Desglose de costes de personal.}
 \begin{tabular}{lrcc}
 \hline
 \textbf{Grupo de tareas} & \textbf{Horas} & \textbf{Coste (€/h)} & \textbf{Total (€)} \\
@@ -258,7 +259,6 @@ T5 Documentación (30\,\% dedicación) & 232 & 23,85 & 5.533,20 \\
 \textbf{Total personal} & \textbf{892} & & \textbf{21.274,20} \\
 \hline
 \end{tabular}
-\caption{Desglose de costes de personal.}
 \label{tab:costes_personal}
 \end{table}
 
@@ -274,6 +274,7 @@ Sociedades~\cite{lis2014}.
 
 \begin{table}[H]
 \centering
+\caption{Amortización de hardware.}
 \begin{tabular}{lcccc}
 \hline
 \textbf{Recurso} & \textbf{Coste (€)} & \textbf{Vida útil (años)} & \textbf{Uso (meses)} & \textbf{Imputable (€)} \\
@@ -284,7 +285,6 @@ GPU NVIDIA RTX 1660             & 300 & 5 & 1 &  5 \\
 \textbf{Total hardware}         &     &   &   & \textbf{65} \\
 \hline
 \end{tabular}
-\caption{Amortización de hardware.}
 \label{tab:costes_hardware}
 \end{table}
 
@@ -294,6 +294,7 @@ Todas las herramientas y bibliotecas utilizadas son de código abierto o gratuit
  
 \begin{table}[H]
 \centering
+\caption{Costes de software.}
 \begin{tabular}{lll}
 \hline
 \textbf{Herramienta} & \textbf{Licencia} & \textbf{Coste (€)} \\
@@ -308,7 +309,6 @@ Git / GitHub         & MIT / gratuito    & 0 \\
 \textbf{Total software} &                & \textbf{0} \\
 \hline
 \end{tabular}
-\caption{Costes de software.}
 \label{tab:costes_software}
 \end{table}
 
@@ -316,6 +316,7 @@ Git / GitHub         & MIT / gratuito    & 0 \\
  
 \begin{table}[H]
 \centering
+\caption{Coste total estimado del proyecto.}
 \begin{tabular}{lr}
 \hline
 \textbf{Concepto} & \textbf{Coste (€)} \\
@@ -327,7 +328,6 @@ Software                   & 0,00      \\
 \textbf{Total del proyecto} & \textbf{21.339,20} \\
 \hline
 \end{tabular}
-\caption{Coste total estimado del proyecto.}
 \label{tab:coste_total}
 \end{table}
 
@@ -337,11 +337,12 @@ Cabe destacar que el coste real para el departamento es prácticamente nulo, ya 
 
 A continuación se identifican los principales riesgos del proyecto, su probabilidad de ocurrencia estimada, el impacto potencial y las estrategias de mitigación adoptadas. La probabilidad e impacto se valoran en tres niveles: \textit{Baja}, \textit{Media} y \textit{Alta}.
 
-La mayoría de los riesgos identificados se materializaron en algún momento del desarrollo. Por ejemplo, el riesgo R2 se materializo en la fase de investigación, por lo que se descartó el uso de modelos de deep learning y se centraron los esfuerzos en las técnicas clásicas. El riesgo R5 se materializó en fases tardías del desarrollo, lo que provocó que se tuviera que dedicar más tiempo a la búsqueda de información sobre técnicas de tracking, hasta encontrar el método de flujo óptico de Lucas-Kanade, que se implementó sin mayor complicación.
+La mayoría de los riesgos identificados se materializaron en algún momento del desarrollo. Por ejemplo, el riesgo R2 se materializó en la fase de investigación, por lo que se descartó el uso de modelos de deep learning y se centraron los esfuerzos en las técnicas clásicas. El riesgo R5 se materializó en fases tardías del desarrollo, lo que provocó que se tuviera que dedicar más tiempo a la búsqueda de información sobre técnicas de tracking, hasta encontrar el método de flujo óptico de Lucas-Kanade, que se implementó sin mayor complicación.
  
 \begin{table}[H]
 \centering
 \small
+\caption{Tabla de análisis de riesgos del proyecto.}
 \begin{tabular}{p{0.3cm} p{4.2cm} p{1.5cm} p{1.3cm} p{5.5cm}}
 \hline
 \textbf{ID} & \textbf{Riesgo} & \textbf{Prob.} & \textbf{Impacto} & \textbf{Mitigación} \\
@@ -357,7 +358,6 @@ R4 & Pérdida de código o de progreso por fallo del equipo & Baja & Alto & Uso 
 R5 & El tracker genera identidades duplicadas en vídeos con muchas gotas solapadas & Media & Medio & Incorporar flujo óptico de Lucas-Kanade como predictor de posición para mejorar la robustez de la asignación \\
 \hline
 \end{tabular}
-\caption{Tabla de análisis de riesgos del proyecto.}
 \label{tab:riesgos}
 \end{table}
 
