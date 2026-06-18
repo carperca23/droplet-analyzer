@@ -15,18 +15,10 @@ class DropletAnalyzer:
     """Analizador de gotas en video"""
     
     def __init__(self, video_path, output_dir='output'):
-        """
-        Inicializa el analizador de gotas
-        
-        Args:
-            video_path: ruta al archivo de video
-            output_dir: directorio para guardar resultados
-        """
         self.video_path = video_path
         self.output_dir = output_dir
         os.makedirs(output_dir, exist_ok=True)
         
-        # Parámetros de segmentación (ajustables)
         self.params = {
             'min_droplet_area': 10,
             'max_droplet_area': 5000,
@@ -40,33 +32,23 @@ class DropletAnalyzer:
             'adaptive_c': 2,
             'morphology_kernel_size': 3,
             'use_clahe': False,
-            'use_lucas_kanade': True,     # NUEVO: Activar Lucas-Kanade
-            'lk_window_size': 15          # NUEVO: Tamaño de ventana LK
+            'use_lucas_kanade': True,     
+            'lk_window_size': 15          
         }
 
-        # Escala de calibración: cuántas unidades reales por píxel
         self.pixel_scale = None   
         self.scale_unit = 'px'    
         
-        # Para tracking
         self.droplet_tracks = []
         self.next_id = 0
-        self.prev_gray = None             # NUEVO: Estado para Lucas-Kanade
+        self.prev_gray = None             
         
-        # Info del video
         self._load_video_info()
-
-        # FPS efectivos
         self.effective_fps = self.fps
-        
-        # Callback para actualización de progreso
         self.progress_callback = None
-        
-        # Flag para cancelación
         self.cancel_requested = False
     
     def _load_video_info(self):
-        """Carga información del video"""
         cap = cv2.VideoCapture(self.video_path)
         self.fps = cap.get(cv2.CAP_PROP_FPS)
         self.width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
@@ -107,26 +89,6 @@ class DropletAnalyzer:
         if self.pixel_scale:
             return area_px2 * (self.pixel_scale ** 2)
         return area_px2
-    
-    def save_diagnostic_frames(self, preprocessed_filename='frame_preprocesado.png',
-                                binary_filename='frame_binarizado.png'):
-        import cv2
-        cap = cv2.VideoCapture(self.video_path)
-        ret, frame = cap.read()
-        cap.release()
-        
-        if not ret:
-            raise RuntimeError("No se pudo leer el primer frame del video")
-        
-        preprocessed = self.preprocess_frame(frame)
-        pre_path = os.path.join(self.output_dir, preprocessed_filename)
-        cv2.imwrite(pre_path, preprocessed)
-        
-        binary, _ = self.segment_droplets(frame)
-        bin_path = os.path.join(self.output_dir, binary_filename)
-        cv2.imwrite(bin_path, binary)
-        
-        return pre_path, bin_path
     
     def set_progress_callback(self, callback):
         self.progress_callback = callback
@@ -181,8 +143,8 @@ class DropletAnalyzer:
         for cnt in contours:
             if cv2.contourArea(cnt) > self.params['min_droplet_area']:
                 cv2.drawContours(binary, [cnt], -1, 255, thickness=-1)
+        
         droplets = []
-
         contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
 
         for cnt in contours:
@@ -227,22 +189,19 @@ class DropletAnalyzer:
                         'circularity': circularity,
                         'roundness': roundness, 
                         'bbox': bbox,
-                        'mask': mask
+                        'mask': mask,
+                        'contour': cnt # NUEVO: Guardamos el contorno para dibujarlo en naranja luego
                     })
         
         return binary, droplets
     
     def track_droplets(self, current_droplets, frame_idx, gray_frame=None):
-        """
-        Rastrea gotas entre frames consecutivos usando Lucas-Kanade + Distancia
-        """
         max_distance = self.params['max_tracking_distance']
         use_lk = self.params.get('use_lucas_kanade', True)
         lk_win = int(self.params.get('lk_window_size', 15))
         
         predicted_positions = {} 
 
-        # 1. PREDECIR CON LUCAS-KANADE
         if use_lk and frame_idx > 0 and self.prev_gray is not None and gray_frame is not None:
             active_indices = [j for j, t in enumerate(self.droplet_tracks) if t['frames'][-1] == frame_idx - 1]
             
@@ -258,7 +217,6 @@ class DropletAnalyzer:
                     if st[k][0] == 1:
                         predicted_positions[j] = tuple(p1[k][0])
 
-        # 2. ASIGNACIÓN
         if frame_idx == 0:
             for droplet in current_droplets:
                 track = {
@@ -287,7 +245,6 @@ class DropletAnalyzer:
                     if track['frames'][-1] < frame_idx - 5:
                         continue
                     
-                    # Usar la posición predicha por LK si existe, sino la última conocida
                     reference_pos = predicted_positions.get(j, track['positions'][-1])
                     
                     distance = np.sqrt(
@@ -310,7 +267,6 @@ class DropletAnalyzer:
                     used_tracks.add(best_track_idx)
                     used_droplets.add(i)
             
-            # Crear tracks para gotas nuevas
             for i, droplet in enumerate(current_droplets):
                 if i not in used_droplets:
                     track = {
@@ -325,7 +281,6 @@ class DropletAnalyzer:
                     self.droplet_tracks.append(track)
                     self.next_id += 1
 
-        # 3. ACTUALIZAR ESTADO
         if use_lk and gray_frame is not None:
             self.prev_gray = gray_frame.copy()
     
@@ -356,70 +311,10 @@ class DropletAnalyzer:
         self.droplet_tracks = []
         self.next_id = 0
         self.cancel_requested = False
-        self.prev_gray = None # NUEVO: Limpiar el frame anterior de LK
-    
-    def process_video(self, save_visualization=True, output_video_filename='tracked_droplets.avi'):
-        self.reset()
-        
-        cap = cv2.VideoCapture(self.video_path)
-        
-        if save_visualization:
-            fourcc = cv2.VideoWriter_fourcc(*'XVID')
-            out = cv2.VideoWriter(
-                os.path.join(self.output_dir, output_video_filename),
-                fourcc, self.fps, (self.width, self.height)
-            )
-        
-        frame_idx = 0
-        
-        while True:
-            if self.cancel_requested:
-                print("Procesamiento cancelado por el usuario")
-                break
-            
-            ret, frame = cap.read()
-            if not ret:
-                break
-            
-            # Obtener frame en grises para Optical Flow
-            gray_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY) if len(frame.shape) == 3 else frame.copy()
-            
-            _, droplets = self.segment_droplets(frame)
-            
-            # Pasamos gray_frame al tracker
-            self.track_droplets(droplets, frame_idx, gray_frame)
-            
-            if save_visualization:
-                vis_frame = cv2.cvtColor(frame, cv2.COLOR_GRAY2BGR) if len(frame.shape) == 2 else frame.copy()
-                
-                for droplet in droplets:
-                    cx, cy = droplet['centroid']
-                    cv2.circle(vis_frame, (int(cx), int(cy)), int(droplet['diameter']/2), (0, 255, 0), 1)
-                    cv2.circle(vis_frame, (int(cx), int(cy)), 2, (0, 0, 255), -1)
-                
-                for track in self.droplet_tracks:
-                    if len(track['positions']) > 1 and track['frames'][-1] >= frame_idx - 10:
-                        points = np.array(track['positions'], dtype=np.int32)
-                        cv2.polylines(vis_frame, [points], False, (255, 0, 0), 1)
-                
-                out.write(vis_frame)
-            
-            if self.progress_callback:
-                progress = int((frame_idx + 1) / self.total_frames * 100)
-                self.progress_callback(progress, frame_idx + 1, self.total_frames)
-            
-            frame_idx += 1
-        
-        cap.release()
-        if save_visualization:
-            out.release()
-        
-        if not self.cancel_requested:
-            self.calculate_velocities()
-        
-        return not self.cancel_requested
+        self.prev_gray = None
     
     def export_to_dataframe(self):
+        # Mantenemos las columnas internas en inglés por defecto
         u = self.scale_unit  
         data = []
         for track in self.droplet_tracks:
@@ -447,17 +342,39 @@ class DropletAnalyzer:
         
         return pd.DataFrame(data)
     
-    def export_results(self, filename='droplet_data.csv'):
+    def _translate_df_headers(self, df, lang):
+        """Traduce las cabeceras del DataFrame al idioma seleccionado antes de exportar"""
+        if lang == 'en':
+            return df
+        
+        # Traducción a español
+        new_cols = []
+        for c in df.columns:
+            c = c.replace('track_id', 'id_trayectoria')
+            c = c.replace('time', 'tiempo')
+            c = c.replace('area', 'area')
+            c = c.replace('diameter', 'diametro')
+            c = c.replace('circularity', 'circularidad')
+            c = c.replace('roundness', 'redondez')
+            c = c.replace('velocity', 'velocidad')
+            new_cols.append(c)
+        
+        df_translated = df.copy()
+        df_translated.columns = new_cols
+        return df_translated
+
+    def export_results(self, filename='droplet_data.csv', lang='es'):
         df = self.export_to_dataframe()
+        df_export = self._translate_df_headers(df, lang)
+        
         if not filename.endswith('.csv'):
             filename += '.csv'
         csv_path = os.path.join(self.output_dir, filename)
-        df.to_csv(csv_path, index=False)
+        df_export.to_csv(csv_path, index=False)
         return df, csv_path
     
     def get_statistics(self):
         df = self.export_to_dataframe()
-        
         if len(df) == 0:
             return None
         
