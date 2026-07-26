@@ -12,6 +12,7 @@ import time
 
 from droplet_analyzer import DropletAnalyzer
 from plotter import DropletPlotter
+from plot_editor import ChartEditorWindow
 
 # Diccionario de traducciones para soportar cambio en caliente
 LANG_DICT = {
@@ -44,6 +45,7 @@ LANG_DICT = {
         'chk_perim': "🟠 Mostrar perímetro detectado",
         'btn_diag': "🔬 Frames Diagnóstico",
         'btn_open': "📁 Abrir Resultados",
+        'btn_plot_editor': "📊 Editor de Gráficas",
         'log_frame': "Log de procesamiento",
         'stats_frame': "Estadísticas",
         'status_lbl': "Estado:",
@@ -67,6 +69,10 @@ LANG_DICT = {
         'stat_mean': "Media:",
         'stat_median': "Mediana:",
         'stat_std': "Desv.Est:",
+        'msg_no_diag_selected': "No has marcado ningún frame de diagnóstico para guardar (preprocesado / binarizado).",
+        'log_diag_saved': "Frames de diagnóstico guardados: {}",
+        'err_no_frame': "No se pudo leer ningún frame del video.",
+        'err_write_frame': "No se pudo guardar el archivo '{}' (revisa la carpeta de salida y permisos).",
     },
     'en': {
         'title': "Droplet Analyzer",
@@ -97,6 +103,7 @@ LANG_DICT = {
         'chk_perim': "🟠 Show detected perimeter",
         'btn_diag': "🔬 Diagnostic Frames",
         'btn_open': "📁 Open Results",
+        'btn_plot_editor': "📊 Chart Editor",
         'log_frame': "Processing Log",
         'stats_frame': "Statistics",
         'status_lbl': "Status:",
@@ -120,6 +127,10 @@ LANG_DICT = {
         'stat_mean': "Mean:",
         'stat_median': "Median:",
         'stat_std': "Std.Dev:",
+        'msg_no_diag_selected': "You haven't selected any diagnostic frame to save (preprocessed / binarized).",
+        'log_diag_saved': "Diagnostic frames saved: {}",
+        'err_no_frame': "Could not read any frame from the video.",
+        'err_write_frame': "Could not save file '{}' (check the output folder and permissions).",
     }
 }
 
@@ -187,6 +198,23 @@ class DropletAnalyzerGUI:
         self.show_tracking_lines_var = tk.BooleanVar(value=True)
         self.show_diameter_var = tk.BooleanVar(value=True)
         self.show_perimeter_var = tk.BooleanVar(value=False)
+
+        # Copias "planas" (no-Tkinter) de estas mismas opciones. Tkinter no
+        # es seguro para leer desde otro hilo: el pipeline de análisis corre
+        # en un hilo secundario, y llamar a .get() de una BooleanVar desde
+        # ahí puede devolver valores obsoletos o poco fiables. Por eso el
+        # hilo de trabajo lee estos atributos simples en vez de las
+        # variables Tkinter directamente; se mantienen sincronizados
+        # mediante trace_add cada vez que cambian desde el hilo principal.
+        self._show_lines = self.show_tracking_lines_var.get()
+        self._show_diam = self.show_diameter_var.get()
+        self._show_perim = self.show_perimeter_var.get()
+        self.show_tracking_lines_var.trace_add(
+            'write', lambda *a: setattr(self, '_show_lines', self.show_tracking_lines_var.get()))
+        self.show_diameter_var.trace_add(
+            'write', lambda *a: setattr(self, '_show_diam', self.show_diameter_var.get()))
+        self.show_perimeter_var.trace_add(
+            'write', lambda *a: setattr(self, '_show_perim', self.show_perimeter_var.get()))
 
         self.setup_styles()
         self.create_widgets()
@@ -349,6 +377,8 @@ class DropletAnalyzerGUI:
         self.widgets['btn_diag'].grid(row=0, column=0, padx=3, sticky=(tk.W, tk.E))
         self.widgets['btn_open'] = ttk.Button(aux_frame, command=self.open_output_folder)
         self.widgets['btn_open'].grid(row=0, column=1, padx=3, sticky=(tk.W, tk.E))
+        self.widgets['btn_plot_editor'] = ttk.Button(aux_frame, command=self.open_chart_editor)
+        self.widgets['btn_plot_editor'].grid(row=1, column=0, columnspan=2, padx=3, pady=(4, 0), sticky=(tk.W, tk.E))
 
         self.widgets['lf_log'] = ttk.LabelFrame(right_frame, padding="5")
         self.widgets['lf_log'].grid(row=1, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), pady=(0, 5))
@@ -413,6 +443,7 @@ class DropletAnalyzerGUI:
         
         self.widgets['btn_diag'].config(text=self._t('btn_diag'))
         self.widgets['btn_open'].config(text=self._t('btn_open'))
+        self.widgets['btn_plot_editor'].config(text=self._t('btn_plot_editor'))
         
         self.widgets['lf_log'].config(text=self._t('log_frame'))
         self.widgets['lf_stats'].config(text=self._t('stats_frame'))
@@ -585,10 +616,6 @@ class DropletAnalyzerGUI:
     def _process_video_with_lines(self, vid_name):
         import cv2
         import numpy as np
-        
-        show_lines = self.show_tracking_lines_var.get()
-        show_diam = self.show_diameter_var.get()
-        show_perim = self.show_perimeter_var.get()
 
         self.analyzer.reset()
         cap = cv2.VideoCapture(self.video_path)
@@ -607,6 +634,15 @@ class DropletAnalyzerGUI:
                 cap.release()
                 out.release()
                 return False
+
+            # Se leen en cada frame (no antes del bucle) para que activar/
+            # desactivar los checkboxes durante el procesamiento surta
+            # efecto inmediatamente. Se usan las copias planas (self._show_*)
+            # en vez de llamar .get() a las BooleanVar, porque este bucle
+            # corre en un hilo secundario y Tkinter no es seguro entre hilos.
+            show_lines = self._show_lines
+            show_diam = self._show_diam
+            show_perim = self._show_perim
 
             ret, frame = cap.read()
             if not ret: break
@@ -657,19 +693,23 @@ class DropletAnalyzerGUI:
     def _save_diag_frames_internal(self):
         import cv2
         if not self.save_pre_frame_var.get() and not self.save_bin_frame_var.get(): return
-        try:
-            cap = cv2.VideoCapture(self.video_path)
-            ret, frame = cap.read()
-            cap.release()
-            if not ret: return
-            if self.save_pre_frame_var.get():
-                name = (self.pre_frame_filename_var.get().strip() or 'frame_preprocesado') + '.png'
-                cv2.imwrite(os.path.join(self.output_dir, name), self.analyzer.preprocess_frame(frame))
-            if self.save_bin_frame_var.get():
-                name = (self.bin_frame_filename_var.get().strip() or 'frame_binarizado') + '.png'
-                binary, _ = self.analyzer.segment_droplets(frame)
-                cv2.imwrite(os.path.join(self.output_dir, name), binary)
-        except Exception: pass
+        os.makedirs(self.output_dir, exist_ok=True)
+        cap = cv2.VideoCapture(self.video_path)
+        ret, frame = cap.read()
+        cap.release()
+        if not ret:
+            raise RuntimeError(self._t('err_no_frame'))
+        if self.save_pre_frame_var.get():
+            name = (self.pre_frame_filename_var.get().strip() or 'frame_preprocesado') + '.png'
+            ok = cv2.imwrite(os.path.join(self.output_dir, name), self.analyzer.preprocess_frame(frame))
+            if not ok:
+                raise RuntimeError(self._t('err_write_frame').format(name))
+        if self.save_bin_frame_var.get():
+            name = (self.bin_frame_filename_var.get().strip() or 'frame_binarizado') + '.png'
+            binary, _ = self.analyzer.segment_droplets(frame)
+            ok = cv2.imwrite(os.path.join(self.output_dir, name), binary)
+            if not ok:
+                raise RuntimeError(self._t('err_write_frame').format(name))
 
     def _on_pipeline_complete(self):
         self.processing = False
@@ -801,7 +841,51 @@ class DropletAnalyzerGUI:
         self.stats_text.config(state=tk.DISABLED)
 
     def save_diagnostic_frames(self):
-        pass # Por brevedad, mantiene la lógica que ya tenías pero con self._t() en los messages
+        if not self.video_path:
+            messagebox.showwarning("Warning", self._t('msg_warn_vid'))
+            return
+        if not self.save_pre_frame_var.get() and not self.save_bin_frame_var.get():
+            messagebox.showinfo("Info", self._t('msg_no_diag_selected'))
+            return
+
+        # Si todavía no se ha ejecutado el pipeline completo, creamos un
+        # analyzer temporal con los parámetros actuales de la GUI para poder
+        # generar los frames de diagnóstico de forma independiente.
+        analyzer = self.analyzer
+        if analyzer is None:
+            analyzer = DropletAnalyzer(self.video_path, self.output_dir)
+            params = self.get_parameters_from_gui()
+            for pname, val in params.items():
+                analyzer.set_parameter(pname, val)
+            scale_val = self.pixel_scale_var.get()
+            unit = self.scale_unit_var.get().strip() or 'px'
+            analyzer.set_scale(scale_val if scale_val > 0 else None, unit)
+
+        prev_analyzer, self.analyzer = self.analyzer, analyzer
+        try:
+            self._save_diag_frames_internal()
+        except Exception as e:
+            messagebox.showerror("Error", self._t('msg_err').format(e))
+            self.analyzer = prev_analyzer
+            return
+        finally:
+            if prev_analyzer is None:
+                # Era un analyzer temporal solo para diagnóstico: no lo
+                # dejamos puesto como si fuera un análisis completo ya
+                # ejecutado.
+                self.analyzer = None
+            else:
+                self.analyzer = prev_analyzer
+
+        saved_names = []
+        if self.save_pre_frame_var.get():
+            saved_names.append((self.pre_frame_filename_var.get().strip() or 'frame_preprocesado') + '.png')
+        if self.save_bin_frame_var.get():
+            saved_names.append((self.bin_frame_filename_var.get().strip() or 'frame_binarizado') + '.png')
+
+        msg = self._t('log_diag_saved').format(", ".join(saved_names))
+        self.log(msg)
+        self.update_status(msg, "green")
 
     def update_status(self, message, color="black"):
         self.status_label.config(text=message, foreground=color)
@@ -811,6 +895,14 @@ class DropletAnalyzerGUI:
 
     def _toggle_bin_frame_entry(self):
         self.bin_frame_entry.config(state=tk.NORMAL if self.save_bin_frame_var.get() else tk.DISABLED)
+
+    def open_chart_editor(self):
+        fname = self.csv_filename_var.get().strip() or 'droplet_data'
+        if not fname.endswith('.csv'):
+            fname += '.csv'
+        candidate = os.path.join(self.output_dir, fname)
+        initial_csv = candidate if os.path.isfile(candidate) else None
+        ChartEditorWindow(self.root, initial_csv=initial_csv, lang=self.lang_var.get())
 
     def open_output_folder(self):
         import platform, subprocess
