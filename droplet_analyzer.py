@@ -121,8 +121,14 @@ class DropletAnalyzer:
             low_percentile = 0.4
             high_percentile = 100.0 - 0.4
             low_val, high_val = np.percentile(flattened, [low_percentile, high_percentile])
-            dst = np.clip(gray, low_val, high_val)
-            enhanced = ((dst - low_val) / (high_val - low_val) * 255).astype(np.uint8)
+            if high_val - low_val < 1:
+                # Frame casi uniforme (p. ej. pocas gotas sobre fondo limpio):
+                # ambos percentiles caen en el fondo y el estiramiento dividiría
+                # por cero, así que se deja el frame sin estirar.
+                enhanced = gray
+            else:
+                dst = np.clip(gray, low_val, high_val)
+                enhanced = ((dst - low_val) / (high_val - low_val) * 255).astype(np.uint8)
 
         denoised = cv2.fastNlMeansDenoising(
             enhanced, 
