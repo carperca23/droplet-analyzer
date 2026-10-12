@@ -93,7 +93,7 @@ def run_analyzer(video_path: str, output_dir: str, csv_name: str,
     analyzer.set_scale(None)       # trabajamos en píxeles
     analyzer.set_fps(1.0)          # 1 frame/s → velocidad en px/frame
 
-    analyzer.process_video(save_visualization=False)
+    analyzer.process_video()
     _, csv_path = analyzer.export_results(filename=csv_name)
     return csv_path
 

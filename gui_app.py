@@ -615,80 +615,33 @@ class DropletAnalyzerGUI:
 
     def _process_video_with_lines(self, vid_name):
         import cv2
-        import numpy as np
-
-        self.analyzer.reset()
-        cap = cv2.VideoCapture(self.video_path)
-        fourcc = cv2.VideoWriter_fourcc(*'XVID')
-        out = cv2.VideoWriter(
-            os.path.join(self.output_dir, vid_name),
-            fourcc, self.analyzer.fps,
-            (self.analyzer.width, self.analyzer.height)
-        )
 
         PREVIEW_EVERY = max(1, int(self.analyzer.fps / 10))
-        frame_idx = 0
-        
-        while True:
-            if self.analyzer.cancel_requested:
-                cap.release()
-                out.release()
-                return False
 
+        def on_frame(frame_idx, frame, preprocessed, binary, droplets):
             # Se leen en cada frame (no antes del bucle) para que activar/
             # desactivar los checkboxes durante el procesamiento surta
             # efecto inmediatamente. Se usan las copias planas (self._show_*)
             # en vez de llamar .get() a las BooleanVar, porque este bucle
             # corre en un hilo secundario y Tkinter no es seguro entre hilos.
-            show_lines = self._show_lines
-            show_diam = self._show_diam
-            show_perim = self._show_perim
-
-            ret, frame = cap.read()
-            if not ret: break
-
-            preprocessed = self.analyzer.preprocess_frame(frame)
-            binary, droplets = self.analyzer.segment_droplets(frame)
-            
-            gray_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY) if len(frame.shape) == 3 else frame.copy()
-            self.analyzer.track_droplets(droplets, frame_idx, gray_frame)
-
-            vis = (cv2.cvtColor(frame, cv2.COLOR_GRAY2BGR) if len(frame.shape) == 2 else frame.copy())
-
-            for d in droplets:
-                cx, cy = d['centroid']
-                # Naranja BGR -> (0, 165, 255) | Verde BGR -> (0, 255, 0)
-                if show_diam:
-                    cv2.circle(vis, (int(cx), int(cy)), int(d['diameter'] / 2), (0, 255, 0), 1)
-                if show_perim and 'contour' in d:
-                    cv2.drawContours(vis, [d['contour']], -1, (0, 165, 255), 1)
-                    
-                cv2.circle(vis, (int(cx), int(cy)), 2, (0, 0, 255), -1)
-
-            if show_lines:
-                for track in self.analyzer.droplet_tracks:
-                    if len(track['positions']) > 1 and track['frames'][-1] >= frame_idx - 10:
-                        pts = np.array(track['positions'], dtype=np.int32)
-                        cv2.polylines(vis, [pts], False, (255, 0, 0), 1)
-
-            out.write(vis)
+            vis = self.analyzer.draw_detections(
+                frame, droplets, frame_idx,
+                show_diam=self._show_diam,
+                show_perim=self._show_perim,
+                show_lines=self._show_lines,
+            )
 
             if frame_idx % PREVIEW_EVERY == 0:
                 orig_bgr = (cv2.cvtColor(frame, cv2.COLOR_GRAY2BGR) if len(frame.shape) == 2 else frame.copy())
                 pre_bgr  = (cv2.cvtColor(preprocessed, cv2.COLOR_GRAY2BGR) if preprocessed.ndim == 2 else preprocessed.copy())
                 bin_bgr  = cv2.cvtColor(binary, cv2.COLOR_GRAY2BGR)
                 self._push_preview_frames(orig_bgr, pre_bgr, bin_bgr, vis)
+            return vis
 
-            if self.analyzer.progress_callback:
-                pct = int((frame_idx + 1) / self.analyzer.total_frames * 100)
-                self.analyzer.progress_callback(pct, frame_idx + 1, self.analyzer.total_frames)
-
-            frame_idx += 1
-
-        cap.release()
-        out.release()
-        self.analyzer.calculate_velocities()
-        return True
+        return self.analyzer.process_video(
+            output_video=os.path.join(self.output_dir, vid_name),
+            frame_callback=on_frame,
+        )
 
     def _save_diag_frames_internal(self):
         import cv2
