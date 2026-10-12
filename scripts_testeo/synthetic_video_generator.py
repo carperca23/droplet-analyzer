@@ -29,6 +29,9 @@ E4  - Rango de detección      : barrido de diámetros (límites del analizador)
 E5  - Densidad de gotas       : número creciente de gotas simultáneas.
 """
 
+import sys
+if hasattr(sys.stdout, 'reconfigure'):
+    sys.stdout.reconfigure(encoding='utf-8')   # consola de Windows (cp1252)
 import cv2
 import numpy as np
 import pandas as pd
