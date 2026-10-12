@@ -18,3 +18,5 @@ debug_frames/
 *.blg
 *.brf
 *.idx
+# Dataset sintético regenerable (se publica aparte, p. ej. Zenodo)
+synthetic_dataset/

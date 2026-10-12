@@ -4,10 +4,21 @@ synthetic_video_generator.py
 Genera vídeos sintéticos de gotas con ground truth conocido para la
 evaluación cuantitativa del analizador de gotas.
 
-Cada gota es un disco blanco gaussiano (borde suavizado) sobre fondo
-oscuro, con posición y velocidad exactas.  Se exporta un CSV de ground
-truth con columnas:
+Por defecto (polarity='dark') cada gota es un disco oscuro con borde
+gaussiano suavizado sobre fondo claro, igual que las sombras de las gotas
+en la retroiluminación real y como espera el umbral invertido del
+analizador. Internamente se dibuja un disco claro sobre fondo oscuro
+(fondo 20, gota 230) y se invierte el frame antes de añadir ruido, de modo
+que el resultado es su negativo exacto (fondo 235, gota 25).
+polarity='bright' reproduce los vídeos de la versión anterior.
+
+Posición, diámetro y velocidad de cada gota son exactos y se exporta un
+CSV de ground truth con columnas:
     frame, track_id, x_px, y_px, diameter_px, vx_px_frame, vy_px_frame
+
+Reproducibilidad: el ruido de cada vídeo usa un generador aleatorio con
+semilla derivada de su etiqueta, los vídeos se guardan sin pérdidas
+(FFV1) y el JSON de metadatos recoge todos los parámetros de generación.
 
 Experimentos disponibles
 ------------------------
@@ -23,7 +34,16 @@ import numpy as np
 import pandas as pd
 import os
 import json
-import itertools
+import zlib
+
+
+CODEC = 'FFV1'   # códec sin pérdidas: evita artefactos de compresión en el GT
+E5_LAYOUT_SEED = 72
+
+
+def _seed(tag: str) -> int:
+    """Semilla estable para el ruido de cada vídeo, derivada de su etiqueta."""
+    return zlib.crc32(tag.encode('utf-8'))
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -91,18 +111,29 @@ def generate_video(
     background: int = 20,    # nivel de gris del fondo
     blur_sigma: float = 0.8,
     intensity: int = 230,
+    polarity: str = 'dark',  # 'dark' = gota oscura sobre fondo claro (retroiluminación)
+    seed: int = None,        # semilla del ruido (None = no reproducible)
     meta_path: str = None,   # JSON con metadatos del experimento
     meta: dict = None,
 ):
     """
-    Genera un vídeo AVI sintético y su ground truth CSV.
+    Genera un vídeo AVI sintético (sin pérdidas) y su ground truth CSV.
+
+    `background` e `intensity` se refieren al dibujo en polaridad clara;
+    con polarity='dark' el frame se invierte antes de añadir el ruido.
 
     Returns
     -------
     gt_df : pd.DataFrame con el ground truth completo
     """
-    fourcc = cv2.VideoWriter_fourcc(*'XVID')
+    if polarity not in ('dark', 'bright'):
+        raise ValueError("polarity debe ser 'dark' o 'bright'")
+    rng = np.random.default_rng(seed)
+
+    fourcc = cv2.VideoWriter_fourcc(*CODEC)
     out = cv2.VideoWriter(output_path, fourcc, fps, (width, height), isColor=False)
+    if not out.isOpened():
+        raise RuntimeError(f"No se pudo abrir el VideoWriter con el códec {CODEC}")
 
     records = []
 
@@ -133,14 +164,17 @@ def generate_video(
                 'vy_px_frame':  d['vy'],
             })
 
+        if polarity == 'dark':
+            canvas = 255 - canvas
+
         # Ruido gaussiano
         if noise_std > 0:
-            noise = np.random.normal(0, noise_std, canvas.shape).astype(np.float32)
+            noise = rng.normal(0, noise_std, canvas.shape).astype(np.float32)
             canvas = np.clip(canvas.astype(np.float32) + noise, 0, 255).astype(np.uint8)
 
         # Ruido sal y pimienta
         if noise_salt_pepper > 0:
-            rnd = np.random.random(canvas.shape)
+            rnd = rng.random(canvas.shape)
             canvas[rnd < noise_salt_pepper / 2] = 0
             canvas[rnd > 1 - noise_salt_pepper / 2] = 255
 
@@ -151,9 +185,22 @@ def generate_video(
     gt_df = pd.DataFrame(records)
     gt_df.to_csv(gt_csv_path, index=False)
 
-    if meta_path and meta:
+    if meta_path:
+        full_meta = dict(meta or {})
+        full_meta['generator'] = {
+            'width': width, 'height': height, 'n_frames': n_frames, 'fps': fps,
+            'polarity': polarity,
+            'background_level': 255 - background if polarity == 'dark' else background,
+            'droplet_level': 255 - intensity if polarity == 'dark' else intensity,
+            'edge_blur_sigma_px': blur_sigma,
+            'noise_gaussian_std': noise_std,
+            'noise_salt_pepper_fraction': noise_salt_pepper,
+            'noise_seed': seed,
+            'codec': CODEC,
+            'droplets_initial': droplets,
+        }
         with open(meta_path, 'w', encoding='utf-8') as f:
-            json.dump(meta, f, indent=2, ensure_ascii=False)
+            json.dump(full_meta, f, indent=2, ensure_ascii=False)
 
     print(f"  ✓ Vídeo  : {output_path}")
     print(f"  ✓ GT CSV : {gt_csv_path}  ({len(records)} filas)")
@@ -172,7 +219,7 @@ def _grid_positions(n_cols, n_rows, width, height, margin=60):
     return positions
 
 
-def experiment_E1_segmentation(output_dir: str, width=512, height=512, n_frames=30):
+def experiment_E1_segmentation(output_dir: str, width=512, height=512, n_frames=30, polarity='dark'):
     """
     E1 - Precisión de segmentación
     Gotas estáticas de diámetros conocidos, sin ruido.
@@ -195,6 +242,7 @@ def experiment_E1_segmentation(output_dir: str, width=512, height=512, n_frames=
             gt_csv_path=os.path.join(output_dir, f"{tag}_gt.csv"),
             droplets=droplets,
             n_frames=n_frames,
+            polarity=polarity, seed=_seed(tag),
             width=width, height=height,
             noise_std=0.0,
             meta_path=os.path.join(output_dir, f"{tag}_meta.json"),
@@ -202,7 +250,7 @@ def experiment_E1_segmentation(output_dir: str, width=512, height=512, n_frames=
         )
 
 
-def experiment_E2_velocity(output_dir: str, width=512, height=512, n_frames=60):
+def experiment_E2_velocity(output_dir: str, width=512, height=512, n_frames=60, polarity='dark'):
     """
     E2  Precisión de velocidad
     Gotas de diámetro 20 px moviéndose a velocidades conocidas.
@@ -237,6 +285,7 @@ def experiment_E2_velocity(output_dir: str, width=512, height=512, n_frames=60):
             gt_csv_path=os.path.join(output_dir, f"{tag}_gt.csv"),
             droplets=droplets,
             n_frames=n_frames,
+            polarity=polarity, seed=_seed(tag),
             width=width, height=height,
             noise_std=0.0,
             meta_path=os.path.join(output_dir, f"{tag}_meta.json"),
@@ -244,7 +293,7 @@ def experiment_E2_velocity(output_dir: str, width=512, height=512, n_frames=60):
         )
 
 
-def experiment_E3_noise(output_dir: str, width=512, height=512, n_frames=40):
+def experiment_E3_noise(output_dir: str, width=512, height=512, n_frames=40, polarity='dark'):
     """
     E3 – Robustez al ruido
     Gota fija de 20 px con niveles crecientes de ruido gaussiano y sal&pimienta.
@@ -263,6 +312,7 @@ def experiment_E3_noise(output_dir: str, width=512, height=512, n_frames=40):
             gt_csv_path=os.path.join(output_dir, f"{tag}_gt.csv"),
             droplets=droplets,
             n_frames=n_frames,
+            polarity=polarity, seed=_seed(tag),
             width=width, height=height,
             noise_std=float(noise_std),
             meta_path=os.path.join(output_dir, f"{tag}_meta.json"),
@@ -276,6 +326,7 @@ def experiment_E3_noise(output_dir: str, width=512, height=512, n_frames=40):
             gt_csv_path=os.path.join(output_dir, f"{tag}_gt.csv"),
             droplets=droplets,
             n_frames=n_frames,
+            polarity=polarity, seed=_seed(tag),
             width=width, height=height,
             noise_std=0.0,
             noise_salt_pepper=sp,
@@ -284,7 +335,7 @@ def experiment_E3_noise(output_dir: str, width=512, height=512, n_frames=40):
         )
 
 
-def experiment_E4_size_range(output_dir: str, width=512, height=512, n_frames=30):
+def experiment_E4_size_range(output_dir: str, width=512, height=512, n_frames=30, polarity='dark'):
     """
     E4 – Rango de tamaños detectables
     Barrido de diámetros: 3 → 80 px para encontrar límites.
@@ -303,6 +354,7 @@ def experiment_E4_size_range(output_dir: str, width=512, height=512, n_frames=30
             gt_csv_path=os.path.join(output_dir, f"{tag}_gt.csv"),
             droplets=droplets,
             n_frames=n_frames,
+            polarity=polarity, seed=_seed(tag),
             width=width, height=height,
             noise_std=8.0,   # algo de ruido realista
             meta_path=os.path.join(output_dir, f"{tag}_meta.json"),
@@ -310,13 +362,13 @@ def experiment_E4_size_range(output_dir: str, width=512, height=512, n_frames=30
         )
 
 
-def experiment_E5_density(output_dir: str, width=512, height=512, n_frames=60):
+def experiment_E5_density(output_dir: str, width=512, height=512, n_frames=60, polarity='dark'):
     """
     E5 – Densidad de gotas (robustez del tracker con oclusiones)
     Número creciente de gotas moviéndose aleatoriamente.
     """
     print("\n── E5: Densidad de gotas ──")
-    np.random.seed(72)
+    rng = np.random.default_rng(E5_LAYOUT_SEED)   # disposición inicial reproducible
     density_levels = [5, 10, 20, 35, 50]
     diameter = 18.0
     speed = 3.0  # px/frame
@@ -326,9 +378,9 @@ def experiment_E5_density(output_dir: str, width=512, height=512, n_frames=60):
         margin = 60
         droplets = []
         for i in range(n_drops):
-            x0 = np.random.uniform(margin, width - margin)
-            y0 = np.random.uniform(margin, height - margin)
-            angle = np.random.uniform(0, 2 * np.pi)
+            x0 = rng.uniform(margin, width - margin)
+            y0 = rng.uniform(margin, height - margin)
+            angle = rng.uniform(0, 2 * np.pi)
             vx = speed * np.cos(angle)
             vy = speed * np.sin(angle)
             droplets.append({'id': i, 'x0': x0, 'y0': y0, 'vx': vx, 'vy': vy,
@@ -339,6 +391,7 @@ def experiment_E5_density(output_dir: str, width=512, height=512, n_frames=60):
             gt_csv_path=os.path.join(output_dir, f"{tag}_gt.csv"),
             droplets=droplets,
             n_frames=n_frames,
+            polarity=polarity, seed=_seed(tag),
             width=width, height=height,
             noise_std=8.0,
             meta_path=os.path.join(output_dir, f"{tag}_meta.json"),
@@ -354,26 +407,29 @@ if __name__ == '__main__':
     import argparse
 
     parser = argparse.ArgumentParser(description='Generador de vídeos sintéticos para evaluación.')
-    parser.add_argument('--output_dir', default='output_synth',
+    parser.add_argument('--output_dir', default='synthetic_dataset',
                         help='Directorio donde se guardan los vídeos y CSVs de GT.')
     parser.add_argument('--experiments', nargs='+',
                         default=['E1', 'E2', 'E3', 'E4', 'E5'],
                         choices=['E1', 'E2', 'E3', 'E4', 'E5'],
                         help='Experimentos a generar.')
+    parser.add_argument('--polarity', default='dark', choices=['dark', 'bright'],
+                        help="'dark' = gotas oscuras sobre fondo claro (por defecto); "
+                             "'bright' = polaridad de la versión anterior.")
     args = parser.parse_args()
 
     os.makedirs(args.output_dir, exist_ok=True)
     print(f"Generando vídeos sintéticos en: {args.output_dir}")
 
     if 'E1' in args.experiments:
-        experiment_E1_segmentation(args.output_dir)
+        experiment_E1_segmentation(args.output_dir, polarity=args.polarity)
     if 'E2' in args.experiments:
-        experiment_E2_velocity(args.output_dir)
+        experiment_E2_velocity(args.output_dir, polarity=args.polarity)
     if 'E3' in args.experiments:
-        experiment_E3_noise(args.output_dir)
+        experiment_E3_noise(args.output_dir, polarity=args.polarity)
     if 'E4' in args.experiments:
-        experiment_E4_size_range(args.output_dir)
+        experiment_E4_size_range(args.output_dir, polarity=args.polarity)
     if 'E5' in args.experiments:
-        experiment_E5_density(args.output_dir)
+        experiment_E5_density(args.output_dir, polarity=args.polarity)
 
     print("\n✓ Todos los vídeos generados.")

@@ -333,7 +333,7 @@ def main():
     parser.add_argument('--experiments', nargs='+',
                         default=['E1', 'E2', 'E3', 'E4', 'E5'],
                         choices=['E1', 'E2', 'E3', 'E4', 'E5'])
-    parser.add_argument('--synth_dir',   default='output_synth',
+    parser.add_argument('--synth_dir',   default='synthetic_dataset',
                         help='Directorio con vídeos sintéticos (se crearán si no existen).')
     parser.add_argument('--results_dir', default='results',
                         help='Directorio para resultados de análisis y métricas.')
