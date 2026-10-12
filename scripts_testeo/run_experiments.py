@@ -94,7 +94,8 @@ def run_analyzer(video_path: str, output_dir: str, csv_name: str,
     analyzer.set_fps(1.0)          # 1 frame/s → velocidad en px/frame
 
     analyzer.process_video()
-    _, csv_path = analyzer.export_results(filename=csv_name)
+    # Cabeceras en inglés: el evaluador busca diameter_*, track_id, velocity_*
+    _, csv_path = analyzer.export_results(filename=csv_name, lang='en')
     return csv_path
 
 
