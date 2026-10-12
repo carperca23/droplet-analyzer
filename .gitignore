@@ -18,3 +18,15 @@ debug_frames/
 *.blg
 *.brf
 *.idx
+# Dataset sintético regenerable (se publica aparte, p. ej. Zenodo)
+synthetic_dataset/
+tuning/
+results/
+tuning_log.txt
+results_log.txt
+
+# Material local que no forma parte del repositorio público
+Memoria TFG/
+output/
+output_synth/
+results_log*.txt

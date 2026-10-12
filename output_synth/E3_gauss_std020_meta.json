@@ -1,6 +1,0 @@
-{
-  "experiment": "E3",
-  "noise_type": "gaussian",
-  "noise_std": 20,
-  "diameter_px": 20.0
-}

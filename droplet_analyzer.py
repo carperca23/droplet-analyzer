@@ -9,6 +9,12 @@ import pandas as pd
 from scipy import ndimage
 from collections import defaultdict
 import os
+import time
+
+
+# Etapas del pipeline para las que se mide el tiempo de ejecución
+TIMING_STAGES = ('decode', 'preprocess', 'threshold_morphology',
+                 'contours_features', 'tracking', 'output')
 
 
 class DropletAnalyzer:
@@ -41,8 +47,10 @@ class DropletAnalyzer:
         
         self.droplet_tracks = []
         self.next_id = 0
-        self.prev_gray = None             
-        
+        self.prev_gray = None
+        self.timings = {s: 0.0 for s in TIMING_STAGES}
+        self.frames_processed = 0
+
         self._load_video_info()
         self.effective_fps = self.fps
         self.progress_callback = None
@@ -113,8 +121,14 @@ class DropletAnalyzer:
             low_percentile = 0.4
             high_percentile = 100.0 - 0.4
             low_val, high_val = np.percentile(flattened, [low_percentile, high_percentile])
-            dst = np.clip(gray, low_val, high_val)
-            enhanced = ((dst - low_val) / (high_val - low_val) * 255).astype(np.uint8)
+            if high_val - low_val < 1:
+                # Frame casi uniforme (p. ej. pocas gotas sobre fondo limpio):
+                # ambos percentiles caen en el fondo y el estiramiento dividiría
+                # por cero, así que se deja el frame sin estirar.
+                enhanced = gray
+            else:
+                dst = np.clip(gray, low_val, high_val)
+                enhanced = ((dst - low_val) / (high_val - low_val) * 255).astype(np.uint8)
 
         denoised = cv2.fastNlMeansDenoising(
             enhanced, 
@@ -122,9 +136,24 @@ class DropletAnalyzer:
         )
         return denoised
     
-    def segment_droplets(self, frame):
-        processed = self.preprocess_frame(frame)
-        
+    def segment_droplets(self, frame, processed=None):
+        """Segmenta las gotas de un frame. Si se pasa `processed` (salida de
+        preprocess_frame) se reutiliza para no repetir el preprocesado."""
+        t0 = time.perf_counter()
+        if processed is None:
+            processed = self.preprocess_frame(frame)
+        t1 = time.perf_counter()
+        binary = self._binarize(processed)
+        t2 = time.perf_counter()
+        droplets = self._extract_droplets(binary)
+        t3 = time.perf_counter()
+
+        self.timings['preprocess'] += t1 - t0
+        self.timings['threshold_morphology'] += t2 - t1
+        self.timings['contours_features'] += t3 - t2
+        return binary, droplets
+
+    def _binarize(self, processed):
         binary = cv2.adaptiveThreshold(
             processed, 255, 
             cv2.ADAPTIVE_THRESH_GAUSSIAN_C, 
@@ -137,7 +166,9 @@ class DropletAnalyzer:
         kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (kernel_size, kernel_size))
         binary = cv2.morphologyEx(binary, cv2.MORPH_OPEN, kernel)
         binary = cv2.morphologyEx(binary, cv2.MORPH_CLOSE, kernel)
-        
+        return binary
+
+    def _extract_droplets(self, binary):
         contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     
         for cnt in contours:
@@ -192,10 +223,15 @@ class DropletAnalyzer:
                         'mask': mask,
                         'contour': cnt # NUEVO: Guardamos el contorno para dibujarlo en naranja luego
                     })
-        
-        return binary, droplets
-    
+
+        return droplets
+
     def track_droplets(self, current_droplets, frame_idx, gray_frame=None):
+        t0 = time.perf_counter()
+        self._track_droplets(current_droplets, frame_idx, gray_frame)
+        self.timings['tracking'] += time.perf_counter() - t0
+
+    def _track_droplets(self, current_droplets, frame_idx, gray_frame=None):
         max_distance = self.params['max_tracking_distance']
         use_lk = self.params.get('use_lucas_kanade', True)
         lk_win = int(self.params.get('lk_window_size', 15))
@@ -307,11 +343,118 @@ class DropletAnalyzer:
             track['velocity_y'] = vy.tolist()
             track['velocity_magnitude'] = v_mag.tolist()
     
+    def process_video(self, output_video=None, frame_callback=None):
+        """
+        Procesa el vídeo completo: preprocesado, segmentación, tracking y
+        cálculo de velocidades.
+
+        Parameters
+        ----------
+        output_video   : ruta del vídeo de visualización a guardar (None = no se guarda)
+        frame_callback : función opcional f(frame_idx, frame, preprocessed, binary, droplets)
+                         llamada en cada frame. Si devuelve una imagen BGR, esa
+                         imagen es la que se escribe en `output_video`; si devuelve
+                         None se escribe la visualización por defecto.
+
+        Returns
+        -------
+        True si se completó, False si se canceló.
+        """
+        self.reset()
+        cap = cv2.VideoCapture(self.video_path)
+        out = None
+        if output_video:
+            fourcc = cv2.VideoWriter_fourcc(*'XVID')
+            out = cv2.VideoWriter(output_video, fourcc, self.fps, (self.width, self.height))
+
+        frame_idx = 0
+        t_start = time.perf_counter()
+        try:
+            while True:
+                if self.cancel_requested:
+                    return False
+
+                t0 = time.perf_counter()
+                ret, frame = cap.read()
+                self.timings['decode'] += time.perf_counter() - t0
+                if not ret:
+                    break
+
+                t0 = time.perf_counter()
+                preprocessed = self.preprocess_frame(frame)
+                self.timings['preprocess'] += time.perf_counter() - t0
+                binary, droplets = self.segment_droplets(frame, processed=preprocessed)
+
+                gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY) if frame.ndim == 3 else frame.copy()
+                self.track_droplets(droplets, frame_idx, gray)
+
+                t0 = time.perf_counter()
+                vis = None
+                if frame_callback is not None:
+                    vis = frame_callback(frame_idx, frame, preprocessed, binary, droplets)
+                if out is not None:
+                    out.write(vis if vis is not None else self.draw_detections(frame, droplets, frame_idx))
+                self.timings['output'] += time.perf_counter() - t0
+
+                if self.progress_callback and self.total_frames > 0:
+                    pct = int((frame_idx + 1) / self.total_frames * 100)
+                    self.progress_callback(pct, frame_idx + 1, self.total_frames)
+
+                frame_idx += 1
+        finally:
+            cap.release()
+            if out is not None:
+                out.release()
+
+        self.frames_processed = frame_idx
+        self.total_time = time.perf_counter() - t_start
+        self.calculate_velocities()
+        return True
+
+    def draw_detections(self, frame, droplets, frame_idx, show_diam=True,
+                        show_perim=False, show_lines=True):
+        """Dibuja detecciones y trayectorias sobre una copia del frame (BGR)."""
+        vis = cv2.cvtColor(frame, cv2.COLOR_GRAY2BGR) if frame.ndim == 2 else frame.copy()
+        for d in droplets:
+            cx, cy = d['centroid']
+            if show_diam:
+                cv2.circle(vis, (int(cx), int(cy)), int(d['diameter'] / 2), (0, 255, 0), 1)
+            if show_perim and 'contour' in d:
+                cv2.drawContours(vis, [d['contour']], -1, (0, 165, 255), 1)
+            cv2.circle(vis, (int(cx), int(cy)), 2, (0, 0, 255), -1)
+
+        if show_lines:
+            for track in self.droplet_tracks:
+                if len(track['positions']) > 1 and track['frames'][-1] >= frame_idx - 10:
+                    pts = np.array(track['positions'], dtype=np.int32)
+                    cv2.polylines(vis, [pts], False, (255, 0, 0), 1)
+        return vis
+
+    def get_timing_summary(self):
+        """Tiempo por etapa (s, ms/frame y % del total) y frames/s globales."""
+        n = max(self.frames_processed, 1)
+        total = sum(self.timings.values())
+        rows = {}
+        for stage, t in self.timings.items():
+            rows[stage] = {
+                'total_s': t,
+                'ms_per_frame': 1000 * t / n,
+                'percent': 100 * t / total if total > 0 else 0.0,
+            }
+        return {
+            'frames': self.frames_processed,
+            'total_s': total,
+            'fps': n / total if total > 0 else 0.0,
+            'stages': rows,
+        }
+
     def reset(self):
         self.droplet_tracks = []
         self.next_id = 0
         self.cancel_requested = False
         self.prev_gray = None
+        self.timings = {s: 0.0 for s in TIMING_STAGES}
+        self.frames_processed = 0
     
     def export_to_dataframe(self):
         # Mantenemos las columnas internas en inglés por defecto

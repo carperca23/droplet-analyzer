@@ -17,6 +17,8 @@ mismo directorio). Ajusta ANALYZER_DIR si fuera necesario.
 
 import os
 import sys
+if hasattr(sys.stdout, 'reconfigure'):
+    sys.stdout.reconfigure(encoding='utf-8')   # consola de Windows (cp1252)
 import json
 import shutil
 import argparse
@@ -41,6 +43,7 @@ from synthetic_video_generator import (
     experiment_E5_density,
 )
 from droplet_evaluator import DropletEvaluator
+from experiment_config import params_for, export_parameter_table
 
 try:
     from droplet_analyzer import DropletAnalyzer
@@ -51,51 +54,29 @@ except ImportError:
     print("   framework de evaluación, pero el análisis deberá lanzarse manualmente.")
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Parámetros por defecto del analizador para los experimentos
-# ─────────────────────────────────────────────────────────────────────────────
-
-DEFAULT_PARAMS = {
-    'min_droplet_area':        10,
-    'max_droplet_area':        5000,
-    'min_droplet_circularity': 0.6,
-    'min_droplet_roundness':   0.0,
-    'max_tracking_distance':   1,
-    'clahe_clip_limit':        2.,
-    'denoise_strength':        30,
-    'adaptive_block_size':     3,
-    'adaptive_c':              2,
-    'morphology_kernel_size':  1,
-    'use_clahe':               True,
-    'use_lucas_kanade':        True,
-    'lk_window_size':          15,
-}
-
-
 def run_analyzer(video_path: str, output_dir: str, csv_name: str,
-                 extra_params: dict = None) -> str | None:
+                 params: dict):
     """
-    Ejecuta DropletAnalyzer sobre video_path y devuelve la ruta al CSV generado.
-    Si el analizador no está disponible, devuelve None.
+    Ejecuta DropletAnalyzer sobre video_path con `params` y devuelve
+    (ruta al CSV generado, resumen de tiempos por etapa).
+    Si el analizador no está disponible, devuelve (None, None).
     """
     if not ANALYZER_AVAILABLE:
-        return None
+        return None, None
 
     os.makedirs(output_dir, exist_ok=True)
     analyzer = DropletAnalyzer(video_path, output_dir)
 
-    params = DEFAULT_PARAMS.copy()
-    if extra_params:
-        params.update(extra_params)
     for k, v in params.items():
         analyzer.set_parameter(k, v)
 
     analyzer.set_scale(None)       # trabajamos en píxeles
     analyzer.set_fps(1.0)          # 1 frame/s → velocidad en px/frame
 
-    analyzer.process_video(save_visualization=False)
-    _, csv_path = analyzer.export_results(filename=csv_name)
-    return csv_path
+    analyzer.process_video()
+    # Cabeceras en inglés: el evaluador busca diameter_*, track_id, velocity_*
+    _, csv_path = analyzer.export_results(filename=csv_name, lang='en')
+    return csv_path, analyzer.get_timing_summary()
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -103,7 +84,7 @@ def run_analyzer(video_path: str, output_dir: str, csv_name: str,
 # ─────────────────────────────────────────────────────────────────────────────
 
 def evaluate_experiment(synth_dir: str, results_dir: str,
-                         tag: str, extra_params: dict = None) -> dict | None:
+                         tag: str, params: dict) -> dict | None:
     """
     Dado el tag de un sub-experimento, busca su GT CSV, lanza el analizador
     y devuelve las métricas de evaluación.
@@ -117,7 +98,7 @@ def evaluate_experiment(synth_dir: str, results_dir: str,
         print(f"  Vídeo no encontrado: {video}")
         return None
 
-    csv_path = run_analyzer(video, out_dir, csv_name, extra_params)
+    csv_path, timing = run_analyzer(video, out_dir, csv_name, params)
 
     if csv_path is None or not os.path.exists(csv_path):
         print(f"   No se pudo analizar {tag}.")
@@ -132,12 +113,17 @@ def evaluate_experiment(synth_dir: str, results_dir: str,
     else:
         metrics = ev.evaluate()
     metrics['tag'] = tag
+    metrics['fps_processing'] = round(timing['fps'], 2)
+    metrics['ms_per_frame'] = round(1000 * timing['total_s'] / max(timing['frames'], 1), 2)
+    for stage, t in timing['stages'].items():
+        metrics[f'pct_{stage}'] = round(t['percent'], 2)
 
     meta_path = os.path.join(synth_dir, f"{tag}_meta.json")
     if os.path.exists(meta_path):
         with open(meta_path) as f:
             meta = json.load(f)
-        metrics.update(meta)
+        # solo los campos escalares (la configuración completa queda en el JSON)
+        metrics.update({k: v for k, v in meta.items() if not isinstance(v, (dict, list))})
 
     return metrics
 
@@ -333,7 +319,7 @@ def main():
     parser.add_argument('--experiments', nargs='+',
                         default=['E1', 'E2', 'E3', 'E4', 'E5'],
                         choices=['E1', 'E2', 'E3', 'E4', 'E5'])
-    parser.add_argument('--synth_dir',   default='output_synth',
+    parser.add_argument('--synth_dir',   default='synthetic_dataset',
                         help='Directorio con vídeos sintéticos (se crearán si no existen).')
     parser.add_argument('--results_dir', default='results',
                         help='Directorio para resultados de análisis y métricas.')
@@ -375,33 +361,25 @@ def main():
 
     # E2: inferir tags de ficheros existentes
     if 'E2' in args.experiments:
-        exp_tags['E2'] = [
+        exp_tags['E2'] = sorted(
             f.replace('_gt.csv', '')
             for f in os.listdir(args.synth_dir)
             if f.startswith('E2_') and f.endswith('_gt.csv')
-        ]
+        )
 
+    print(f"  Tabla S1 de parámetros: {export_parameter_table(args.results_dir)}")
     all_results = {}
 
     for exp in args.experiments:
         print(f"\n── {exp} ──")
         metrics_list = []
 
-        # Parámetros específicos por experimento
-        exp_extra = {}
-        if exp in ('E1', 'E4'):
-            exp_extra = {'min_droplet_area': 3, 'max_droplet_area': 8000,
-                         'min_droplet_circularity': 0.5}
-        elif exp == 'E2':
-            exp_extra = {'min_droplet_area': 5, 'max_tracking_distance': 80}
-        elif exp == 'E3':
-            exp_extra = {'min_droplet_area': 5}
-        elif exp == 'E5':
-            exp_extra = {'min_droplet_area': 5, 'max_tracking_distance': 60}
+        # Parámetros: única fuente en experiment_config.py (Tabla S1)
+        params = params_for(exp)
 
         for tag in exp_tags.get(exp, []):
             print(f"  Procesando {tag}...")
-            m = evaluate_experiment(args.synth_dir, args.results_dir, tag, exp_extra)
+            m = evaluate_experiment(args.synth_dir, args.results_dir, tag, params)
             if m:
                 metrics_list.append(m)
 

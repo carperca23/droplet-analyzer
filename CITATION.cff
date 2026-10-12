@@ -1,0 +1,28 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it using these metadata."
+title: "Droplet Analyzer"
+abstract: >-
+  Open-source desktop application, based on OpenCV, for the automated
+  detection, sizing, tracking, and velocity estimation of droplets in
+  ultra-high-speed backlit videos of sprays.
+type: software
+authors:
+  - family-names: "Pérez-Cantalapiedra"
+    given-names: "Carlos"
+    orcid: "https://orcid.org/0009-0002-6219-1044"
+    affiliation: "University of Seville"
+  - family-names: "Carranza-García"
+    given-names: "Manuel"
+    orcid: "https://orcid.org/0000-0002-4729-8604"
+    affiliation: "University of Seville"
+  - family-names: "Modesto-López"
+    given-names: "Luis B."
+    orcid: "https://orcid.org/0000-0002-9493-8846"
+    affiliation: "University of Seville"
+repository-code: "https://github.com/carperca23/droplet-analyzer"
+keywords:
+  - computer vision
+  - droplets
+  - high-speed imaging
+  - sprays
+  - OpenCV
