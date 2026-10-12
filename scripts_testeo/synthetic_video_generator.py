@@ -35,6 +35,7 @@ import pandas as pd
 import os
 import json
 import zlib
+import itertools
 
 
 CODEC = 'FFV1'   # códec sin pérdidas: evita artefactos de compresión en el GT
@@ -253,32 +254,40 @@ def experiment_E1_segmentation(output_dir: str, width=512, height=512, n_frames=
 def experiment_E2_velocity(output_dir: str, width=512, height=512, n_frames=60, polarity='dark'):
     """
     E2  Precisión de velocidad
-    Gotas de diámetro 20 px moviéndose a velocidades conocidas.
+    Gota de 20 px moviéndose a velocidades conocidas, sin ruido y con ruido
+    gaussiano (σ = 8). Las velocidades enteras solo comprueban el
+    procedimiento (la gota se traslada exactamente sobre la rejilla de
+    píxeles); las subpíxel miden la precisión de localización del centroide,
+    y las más lentas (0.4 y 0.2 px/frame) el régimen en el que el
+    desplazamiento se acerca a la incertidumbre de localización.
     """
     print("\n── E2: Precisión de velocidad ──")
-    # Velocidades en px/frame; FPS=25 → velocidades reales = vx*25 px/s
+    # Velocidades en px/frame
     velocities = [
-        (2.0, 0.0),   # horizontal lento
-        (5.0, 0.0),   # horizontal rápido
-        (0.0, 3.0),   # vertical
-        (3.0, 3.0),   # diagonal
-        (-4.0, 2.0),  # diagonal inversa
+        (2.0, 0.0),    # enteras
+        (5.0, 0.0),
+        (0.0, 3.0),
+        (3.0, 3.0),
+        (-4.0, 2.0),
+        (1.3, 0.7),    # subpíxel
+        (4.25, -1.6),
+        (0.4, 0.0),    # lentas
+        (0.2, 0.0),
     ]
+    noise_levels = [0.0, 8.0]
     diameter = 20.0
     margin = 80
 
-    for vx, vy in velocities:
-        tag = f"E2_vx{vx:+.1f}_vy{vy:+.1f}".replace('+', 'p').replace('-', 'n').replace('.', 'd')
-        # Posición inicial centrada; la trayectoria debe caber en n_frames
-        # Ajustamos x0, y0 para que la gota no salga del frame
-        max_travel_x = abs(vx) * n_frames
-        max_travel_y = abs(vy) * n_frames
-        x0 = margin + max_travel_x / 2 if vx < 0 else margin
-        y0 = margin + max_travel_y / 2 if vy < 0 else margin
-        x0 = max(margin, min(width - margin - max_travel_x, x0))
-        y0 = max(margin, min(height - margin - max_travel_y, y0))
+    for (vx, vy), noise in itertools.product(velocities, noise_levels):
+        tag = (f"E2_vx{vx:+.2f}_vy{vy:+.2f}".replace('+', 'p').replace('-', 'n').replace('.', 'd')
+               + f"_s{int(noise):03d}")
+        # La gota parte del borde opuesto al sentido de avance en cada eje,
+        # de modo que la trayectoria completa queda dentro del frame
+        x0 = margin if vx >= 0 else width - margin
+        y0 = margin if vy >= 0 else height - margin
+        assert abs(vx) * n_frames <= width - 2 * margin and abs(vy) * n_frames <= height - 2 * margin
 
-        droplets = [{'id': 0, 'x0': x0, 'y0': y0, 'vx': vx, 'vy': vy, 'diameter': diameter}]
+        droplets = [{'id': 0, 'x0': float(x0), 'y0': float(y0), 'vx': vx, 'vy': vy, 'diameter': diameter}]
 
         generate_video(
             output_path=os.path.join(output_dir, f"{tag}.avi"),
@@ -287,9 +296,10 @@ def experiment_E2_velocity(output_dir: str, width=512, height=512, n_frames=60, 
             n_frames=n_frames,
             polarity=polarity, seed=_seed(tag),
             width=width, height=height,
-            noise_std=0.0,
+            noise_std=noise,
             meta_path=os.path.join(output_dir, f"{tag}_meta.json"),
-            meta={'experiment': 'E2', 'vx_px_frame': vx, 'vy_px_frame': vy, 'diameter_px': diameter},
+            meta={'experiment': 'E2', 'vx_px_frame': vx, 'vy_px_frame': vy,
+                  'noise_std': noise, 'diameter_px': diameter},
         )
 
 
