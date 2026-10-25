@@ -20,6 +20,7 @@ authors:
     orcid: "https://orcid.org/0000-0002-9493-8846"
     affiliation: "University of Seville"
 repository-code: "https://github.com/carperca23/droplet-analyzer"
+license: MIT
 keywords:
   - computer vision
   - droplets

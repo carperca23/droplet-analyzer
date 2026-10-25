@@ -200,7 +200,7 @@ Citation metadata for the software is provided in [`CITATION.cff`](CITATION.cff)
 
 ## License
 
-No license has been chosen yet. Until one is added, the code is published for consultation only and all rights are reserved by the authors.
+Droplet Analyzer is released under the [MIT License](LICENSE).
 
 ## Acknowledgements
 
