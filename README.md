@@ -192,11 +192,15 @@ docs/                      Images used in this README
 
 ## Citation
 
-If you use Droplet Analyzer in your work, please cite the accompanying article (in preparation):
+If you use Droplet Analyzer in your work, please cite the accompanying article (submitted):
 
-> C. Pérez-Cantalapiedra, M. Carranza-García, L. B. Modesto-López. *An automated computer vision framework for the systematic sizing and kinematic analysis of multiple droplets in ultra-high-speed videos.* In preparation.
+> C. Pérez-Cantalapiedra, M. Carranza-García, L. B. Modesto-López. *An automated computer vision framework for the systematic sizing and kinematic analysis of multiple droplets in ultra-high-speed videos.* Submitted to Aerosol Research, 2026.
 
-Citation metadata for the software is provided in [`CITATION.cff`](CITATION.cff). A DOI will be assigned through Zenodo with the first release.
+and the software itself:
+
+> C. Pérez-Cantalapiedra, M. Carranza-García, L. B. Modesto-López. *Droplet Analyzer* (v1.0.0) [code]. idUS – Depósito de Investigación de la Universidad de Sevilla, https://doi.org/ (DOI pending), 2026.
+
+Citation metadata for the software is provided in [`CITATION.cff`](CITATION.cff). Version 1.0.0 is archived in [idUS](https://idus.us.es), the institutional repository of the University of Seville, which assigns its DOI.
 
 ## License
 

@@ -6,6 +6,9 @@ abstract: >-
   detection, sizing, tracking, and velocity estimation of droplets in
   ultra-high-speed backlit videos of sprays.
 type: software
+version: "1.0.0"
+# date-released and doi are filled in when the version is deposited in idUS
+# (Universidad de Sevilla institutional repository), which assigns the DOI.
 authors:
   - family-names: "Pérez-Cantalapiedra"
     given-names: "Carlos"
